@@ -33,7 +33,10 @@ services:
   api:
     build: .
     container_name: sedp-api
-    command: uvicorn src.sedp.api:app --host 0.0.0.0 --port 8000 
+    command: uvicorn src.sedp.api:app --host 0.0.0.0 --port 8000
+    environment:
+      # active prediction algorithm: ewma_trend | holt | ar | kalman | linreg
+      SEDP_PREDICTOR: ${SEDP_PREDICTOR:-ewma_trend}
     volumes:
       - ./:/app
     ports:
@@ -50,5 +53,17 @@ services:
     command: streamlit run src/sedp/streamlit_app.py --server.port 8501 --server.address 0.0.0.0
     ports:
       - "8501:8501"
+    depends_on:
+      - api
+
+  eval-dashboard:
+    build: .
+    container_name: sedp-eval
+    working_dir: /app
+    volumes:
+      - ./:/app
+    command: streamlit run src/sedp/eval_dashboard.py --server.port 8502 --server.address 0.0.0.0
+    ports:
+      - "8502:8502"
     depends_on:
       - api

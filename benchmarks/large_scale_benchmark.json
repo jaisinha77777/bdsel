@@ -1,0 +1,111 @@
+{
+  "generated_utc": "2026-06-26 13:40:09 UTC",
+  "data_points": 320000,
+  "partitions": 4,
+  "cycles_per_partition": 80000,
+  "seed": 7,
+  "split_threshold": 100.0,
+  "gen_time_s": 0.795,
+  "total_predict_time_s": 24.945,
+  "ppea_decision_time_s": 0.769,
+  "environment": {
+    "python": "3.14.2",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "processor": "Intel64 Family 6 Model 186 Stepping 2, GenuineIntel"
+  },
+  "best_by_r2": "EWMA + Trend",
+  "ppea_decisions": {
+    "split": 320000,
+    "merge": 0,
+    "reassign": 80000
+  },
+  "baseline_decisions": {
+    "split": 159596
+  },
+  "results": [
+    {
+      "algorithm": "ewma_trend",
+      "label": "EWMA + Trend",
+      "family": "Smoothing",
+      "points_processed": 319996,
+      "time_s": 0.202,
+      "throughput_pts_per_s": 1584776,
+      "us_per_point": 0.631,
+      "MAE": 9759.4,
+      "RMSE": 15623.8,
+      "MAPE": 8.44,
+      "R2": 1.0,
+      "skill": -17.9
+    },
+    {
+      "algorithm": "holt",
+      "label": "Holt Linear",
+      "family": "Smoothing",
+      "points_processed": 319996,
+      "time_s": 0.178,
+      "throughput_pts_per_s": 1798906,
+      "us_per_point": 0.556,
+      "MAE": 8629.3,
+      "RMSE": 12759.2,
+      "MAPE": 9.99,
+      "R2": 1.0,
+      "skill": -4.3
+    },
+    {
+      "algorithm": "ar",
+      "label": "Autoregressive AR(3)",
+      "family": "Time-series",
+      "points_processed": 319996,
+      "time_s": 7.2,
+      "throughput_pts_per_s": 44443,
+      "us_per_point": 22.501,
+      "MAE": 9256.1,
+      "RMSE": 14782.9,
+      "MAPE": 9.18,
+      "R2": 1.0,
+      "skill": -11.8
+    },
+    {
+      "algorithm": "kalman",
+      "label": "Kalman (const-velocity)",
+      "family": "State-space",
+      "points_processed": 319996,
+      "time_s": 0.577,
+      "throughput_pts_per_s": 554844,
+      "us_per_point": 1.802,
+      "MAE": 8563.9,
+      "RMSE": 13113.3,
+      "MAPE": 9.3,
+      "R2": 1.0,
+      "skill": -3.5
+    },
+    {
+      "algorithm": "linreg",
+      "label": "Linear Regression",
+      "family": "Regression",
+      "points_processed": 319996,
+      "time_s": 1.084,
+      "throughput_pts_per_s": 295296,
+      "us_per_point": 3.386,
+      "MAE": 8577.0,
+      "RMSE": 12777.3,
+      "MAPE": 9.8,
+      "R2": 1.0,
+      "skill": -3.6
+    },
+    {
+      "algorithm": "game",
+      "label": "Game-Theoretic Ensemble",
+      "family": "Game-theory (ours)",
+      "points_processed": 319996,
+      "time_s": 15.704,
+      "throughput_pts_per_s": 20376,
+      "us_per_point": 49.077,
+      "MAE": 7732.5,
+      "RMSE": 11809.2,
+      "MAPE": 8.29,
+      "R2": 1.0,
+      "skill": 6.6
+    }
+  ]
+}

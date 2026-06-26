@@ -2,10 +2,11 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 from typing import Dict, List
 from .load_monitor import LoadMonitor
-from .predictor import EWMAWithTrend
+from .predictors import make_predictor, DEFAULT_PREDICTOR, label
 from .ppea import PPEA
 from .evolution_engine import EvolutionEngine
 from .feedback import FeedbackController
+import os
 import threading
 import time
 import copy
@@ -13,13 +14,22 @@ import copy
 app = FastAPI()
 monitor = LoadMonitor()
 
+# Active prediction algorithm for the live engine (configurable via env).
+ACTIVE_PREDICTOR = os.environ.get("SEDP_PREDICTOR", DEFAULT_PREDICTOR)
+
 # PPEA and helpers
 ppea = PPEA(log_csv="sedp_actions.csv")
 evolution = EvolutionEngine()
 feedback = FeedbackController(log_csv="sedp_feedback.csv")
 
-# per-partition predictors
-predictors: Dict[int, EWMAWithTrend] = {}
+# per-partition predictors (instances of the active algorithm)
+predictors: Dict[int, object] = {}
+
+
+@app.get("/algorithm")
+async def algorithm():
+    """Which prediction algorithm the live engine is currently using."""
+    return {"key": ACTIVE_PREDICTOR, "label": label(ACTIVE_PREDICTOR)}
 
 # in-memory event log
 events: List[Dict] = []
@@ -79,7 +89,7 @@ async def get_pps():
     pps_map = {}
     for p in parts:
         if p not in predictors:
-            predictors[p] = EWMAWithTrend()
+            predictors[p] = make_predictor(ACTIVE_PREDICTOR)
         # use latest records_per_sec
         r = monitor.latest(p, "records_per_sec")
         pred = predictors[p].update_and_predict(r)["predicted"]
@@ -104,7 +114,7 @@ async def comparison():
 
     for p in parts:
         if p not in predictors:
-            predictors[p] = EWMAWithTrend()
+            predictors[p] = make_predictor(ACTIVE_PREDICTOR)
 
         records_per_sec = monitor.latest(p, "records_per_sec")
         lag = monitor.latest(p, "consumer_lag")
@@ -175,7 +185,7 @@ def monitor_loop(interval: int = 5):
         snapshot = {}
         for p in parts:
             if p not in predictors:
-                predictors[p] = EWMAWithTrend()
+                predictors[p] = make_predictor(ACTIVE_PREDICTOR)
             latest_r = monitor.latest(p, "records_per_sec")
             pred = predictors[p].update_and_predict(latest_r)["predicted"]
             lag = monitor.latest(p, "consumer_lag")
