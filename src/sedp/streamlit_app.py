@@ -8,6 +8,15 @@ API = "http://host.docker.internal:8000"
 st.set_page_config(layout="wide")
 st.title("SEDP Dashboard")
 
+# --- live refresh controls (the API is fed asynchronously via /ingest, so the
+#     page must re-run to pick up newly ingested data) ---
+_rc1, _rc2, _rc3 = st.columns([1, 1, 6])
+if _rc1.button("🔄 Refresh data"):
+    st.experimental_rerun()
+auto_refresh = _rc2.checkbox("Auto-refresh (5s)", value=True)
+_rc3.caption("Ingest data via the API, then it appears here automatically "
+             "(or click Refresh). Auto-refresh re-reads the API every 5 seconds.")
+
 
 def fetch_partitions():
     try:
@@ -149,5 +158,11 @@ if events:
     st.sidebar.dataframe(display_df.sort_values(by="time", ascending=False).head(50))
 else:
     st.sidebar.write("No events yet.")
+
+
+# Auto-refresh: render the page first, then wait and re-run to pull fresh data.
+if auto_refresh:
+    time.sleep(5)
+    st.experimental_rerun()
 
 

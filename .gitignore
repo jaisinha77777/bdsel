@@ -1,3 +1,7 @@
 __pycache__/
 *.pyc
 .DS_Store
+
+# Generated runtime data (too large for GitHub)
+sedp_feedback.csv
+sedp_actions.csv

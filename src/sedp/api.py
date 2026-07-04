@@ -10,6 +10,8 @@ import os
 import threading
 import time
 import copy
+import json
+from collections import defaultdict
 
 app = FastAPI()
 monitor = LoadMonitor()
@@ -19,7 +21,9 @@ ACTIVE_PREDICTOR = os.environ.get("SEDP_PREDICTOR", DEFAULT_PREDICTOR)
 
 # PPEA and helpers
 ppea = PPEA(log_csv="sedp_actions.csv")
-evolution = EvolutionEngine()
+KAFKA_BOOTSTRAP = os.environ.get("SEDP_KAFKA", "localhost:9092")
+MAX_PARTITIONS = int(os.environ.get("SEDP_MAX_PARTITIONS", "16"))
+evolution = EvolutionEngine(kafka_bootstrap_servers=KAFKA_BOOTSTRAP, max_partitions=MAX_PARTITIONS)
 feedback = FeedbackController(log_csv="sedp_feedback.csv")
 
 # per-partition predictors (instances of the active algorithm)
@@ -262,8 +266,88 @@ def monitor_loop(interval: int = 5):
         time.sleep(interval)
 
 
+def kafka_consumer_loop(bootstrap: str, topic: str = "sedp-topic", window: float = 1.0):
+    """Live ingestion: consume the Kafka topic and feed per-partition metrics to the
+    LoadMonitor every `window` seconds. Each Kafka partition maps to an engine partition.
+
+    Derived per partition, per window:
+      records_per_sec     = messages / elapsed
+      bytes_per_sec       = bytes / elapsed
+      processing_latency  = mean (now - producer_ts), ms
+      consumer_lag        = end_offset - current_position
+    """
+    from kafka import KafkaConsumer
+
+    consumer = None
+    while consumer is None:
+        try:
+            consumer = KafkaConsumer(
+                topic,
+                bootstrap_servers=bootstrap,
+                group_id="sedp-engine",
+                auto_offset_reset="latest",
+                enable_auto_commit=True,
+            )
+        except Exception as e:
+            print("kafka consumer: waiting for broker:", e)
+            time.sleep(2)
+    print("kafka consumer: subscribed to", topic, "via", bootstrap)
+
+    counts = defaultdict(int)
+    bytes_acc = defaultdict(int)
+    lat_sum = defaultdict(float)
+    last_flush = time.time()
+
+    while True:
+        try:
+            batch = consumer.poll(timeout_ms=500)
+            now = time.time()
+            for tp, msgs in batch.items():
+                for m in msgs:
+                    counts[tp.partition] += 1
+                    bytes_acc[tp.partition] += len(m.value or b"")
+                    try:
+                        ts = json.loads(m.value.decode()).get("ts", now)
+                        lat_sum[tp.partition] += max(0.0, (now - ts) * 1000.0)
+                    except Exception:
+                        pass
+
+            if now - last_flush >= window:
+                elapsed = now - last_flush
+                assigned = consumer.assignment()
+                end_offsets = consumer.end_offsets(list(assigned)) if assigned else {}
+                for tp in assigned:
+                    p = tp.partition
+                    c = counts.get(p, 0)
+                    try:
+                        pos = consumer.position(tp)
+                        lag = max(0, end_offsets.get(tp, pos) - pos)
+                    except Exception:
+                        lag = 0
+                    monitor.add_sample(p, {
+                        "records_per_sec": c / elapsed,
+                        "bytes_per_sec": bytes_acc.get(p, 0) / elapsed,
+                        "processing_latency_ms": (lat_sum.get(p, 0.0) / c) if c else 0.0,
+                        "consumer_lag": lag,
+                        "queue_depth": lag,
+                    })
+                counts.clear(); bytes_acc.clear(); lat_sum.clear()
+                last_flush = now
+        except Exception as e:
+            print("kafka consumer error:", e)
+            time.sleep(1)
+
+
 @app.on_event("startup")
 def start_background_tasks():
     t = threading.Thread(target=monitor_loop, daemon=True)
     t.start()
+    # only start live Kafka ingestion when a broker is configured
+    if os.environ.get("SEDP_KAFKA"):
+        k = threading.Thread(
+            target=kafka_consumer_loop,
+            args=(os.environ["SEDP_KAFKA"],),
+            daemon=True,
+        )
+        k.start()
 

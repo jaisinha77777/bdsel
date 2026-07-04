@@ -6,22 +6,40 @@ import time
 logger = logging.getLogger("evolution")
 
 class EvolutionEngine:
-    def __init__(self, kafka_bootstrap_servers="localhost:9092", topic="sedp-topic", routing_table=None):
+    def __init__(self, kafka_bootstrap_servers="localhost:9092", topic="sedp-topic",
+                 routing_table=None, max_partitions=16):
         self.kafka = None
         self.servers = kafka_bootstrap_servers
         self.topic = topic
         self.routing_table = routing_table or {}
+        # Hard cap on real Kafka partitions. Splitting changes hash(key) % N, which
+        # moves the hotspot and re-triggers a split -> unbounded growth. The cap
+        # turns split into a no-op once reached, breaking the feedback loop.
+        self.max_partitions = max_partitions
+        self._ensure_kafka()
+
+    def _ensure_kafka(self):
+        """(Re)connect the admin client lazily. The broker is often not ready at
+        import time, so we retry on first use instead of failing permanently."""
+        if self.kafka is not None:
+            return self.kafka
         try:
             self.kafka = KafkaAdminClient(bootstrap_servers=self.servers)
         except Exception as e:
             logger.warning("Kafka admin client unavailable: %s", e)
+            self.kafka = None
+        return self.kafka
 
     def split_partition(self, partition):
         """Increase topic partitions by 1 and update routing table. Uses Kafka create_partitions when available."""
         try:
+            self._ensure_kafka()
             if self.kafka:
                 # increase partitions by 1
                 current = self._current_partitions()
+                if current >= self.max_partitions:
+                    logger.info("Split skipped: at max_partitions cap (%d)", self.max_partitions)
+                    return False
                 new_total = current + 1
                 self.kafka.create_partitions({self.topic: NewPartitions(total_count=new_total)})
                 logger.info("Increased partitions to %d", new_total)
@@ -54,10 +72,12 @@ class EvolutionEngine:
             return False
 
     def _current_partitions(self):
-        # naive: get length of routing table or query metadata
+        # query the broker for the real partition count; fall back to routing size.
+        # kafka-python 2.0.2 returns describe_topics entries as dicts.
         try:
-            md = self.kafka.describe_topics([self.topic])
-            return len(md[0].partitions)
+            entry = self.kafka.describe_topics([self.topic])[0]
+            parts = entry["partitions"] if isinstance(entry, dict) else entry.partitions
+            return len(parts)
         except Exception:
             return len(self.routing_table) or 1
 

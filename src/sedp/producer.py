@@ -23,3 +23,22 @@ class SyntheticProducer:
             if i % max(1, rps // 10) == 0:
                 self.producer.flush()
             time.sleep(1.0 / rps)
+
+
+if __name__ == "__main__":
+    import os
+
+    bootstrap = os.environ.get("SEDP_KAFKA", "localhost:9092")
+    rps = int(os.environ.get("SEDP_RPS", "500"))
+
+    prod = None
+    while prod is None:
+        try:
+            prod = SyntheticProducer(bootstrap_servers=bootstrap)
+        except Exception as e:
+            print("producer: waiting for broker:", e)
+            time.sleep(2)
+
+    print(f"producer: streaming ~{rps} rps (skew 0.8 -> partition 0) to {bootstrap}")
+    while True:
+        prod.generate(rps=rps, duration_sec=10, burst=False)
