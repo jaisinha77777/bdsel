@@ -66,28 +66,46 @@ w_i  ←  w_i · exp(−η · loss_i)        (then renormalize)
 final_prediction = Σ w_i · prediction_i
 ```
 
-By the **no-regret guarantee** of Hedge, its cumulative error stays within
-`O(√(T·log N))` of the *best expert in hindsight* — so it is **provably competitive with
-whichever base method turns out best**, and it re-allocates weight within a few rounds when
-the regime changes (calm ↔ burst), which no single fixed model can do.
+By the **no-regret guarantee** of Hedge (in the idealized fixed-loss-range setting; our
+per-round loss normalization is an adaptive variant of that setting, see the docstring in
+`predictors.py`), its cumulative error is motivated to stay close to the *best expert in
+hindsight* — and it re-allocates weight within a few rounds when the regime changes
+(calm ↔ burst), which no single fixed model can do.
 
-**Result:** it ranks **#1** on the composite leaderboard and is the **only** algorithm with
-**positive skill at 320k points** (i.e. the only one that beats the naive baseline at scale).
-Its trade-off is speed — it internally evaluates all five experts every step.
+**Result:** it has the **best raw accuracy** of the six (highest risk-adjusted skill) and is
+the **only** algorithm with **positive skill at 320k points** (i.e. the only one that beats
+the naive baseline at scale) — but it does **not** win the composite leaderboard, because it's
+also the **slowest by ~90x** (it internally evaluates all five experts every step) and the
+composite explicitly weighs throughput. Best accuracy and best overall pick are different
+questions; see §6.
 
 ---
 
 ## 3. Evaluation metrics (what the dashboard shows)
 
 - **MAE / RMSE** — average forecast error (lower = better).
-- **MAPE / sMAPE** — error as a percentage.
-- **R²** — fraction of the pattern captured (closer to 1 = better).
-- **Directional accuracy** — did it get *up vs down* right?
+- **MAPE / sMAPE** — error as a percentage. Reported for transparency; not part of the composite
+  (see below).
+- **R²** — fraction of the pattern captured (closer to 1 = better). Reported for transparency
+  only — on this workload R² is nearly flat across all six algorithms (≈0.97–0.99, ~2% of its own
+  range) because the trend/burst variance in the workload dominates SST, so it barely
+  discriminates between algorithms; it is **not** part of the composite.
+- **Directional accuracy** — did it get *up vs down* right? (50% = coin-flip, 100% = perfect.)
 - **Skill** — did it beat the naive "next = current" baseline? (positive = yes)
-- **Theil's U2** — RMSE vs naive (< 1 = beats naive).
-- **Lead-time** — *the headline*: how many cycles **earlier** PPEA acts vs the reactive baseline.
-- **Throughput** — points/sec processed (the large-scale benchmark).
-- **Composite score** — normalized 0–100 blend used for ranking, with Monte-Carlo confidence over seeds.
+- **Theil's U2** — RMSE vs naive (< 1 = beats naive). Reported for transparency; not part of the
+  composite — it's 94–99%+ correlated with skill/R² on this workload (same underlying signal,
+  different norm), so including all four would just count that one signal several times.
+- **Lead-time** — how many cycles **earlier** PPEA acts vs the reactive baseline.
+- **Throughput** — points/sec processed. Now part of the composite (see below), not just the
+  large-scale benchmark, since it's what actually limits which algorithm can run live.
+- **Composite score** — `0.5·accuracy + 0.2·directional + 0.3·efficiency`, each mapped to a
+  **fixed absolute** 0–100 scale (not normalized against whichever algorithms you happen to be
+  comparing — a score means the same thing regardless of the comparison set). `accuracy` is
+  risk-adjusted skill (mean − 1·std across Monte-Carlo seeds, so an algorithm that's only good on
+  lucky seeds doesn't get full credit). `efficiency` is throughput on a log scale. See the
+  docstring above `COMPOSITE_WEIGHTS` in `evaluation.py` for the full rationale, including the
+  measurements (metric correlations, min-max instability) that motivated dropping MAPE/R²/Theil
+  from the score.
 
 ---
 
@@ -164,22 +182,38 @@ python scripts/evaluate.py
 
 ## 6. Headline results
 
-**Composite leaderboard** (60 cycles, 5 seeds):
+**Composite leaderboard v2** (60 cycles, 5 seeds; `composite = 0.5·accuracy + 0.2·directional +
+0.3·efficiency`, all on a fixed absolute 0–100 scale — see §3):
 
-| # | Algorithm | Composite | MAPE | DirAcc | R² |
-|---|-----------|-----------|------|--------|----|
-| **1** | **Game-Theoretic Ensemble (ours)** | **~93** | 14.1% | 60% | 0.985 |
-| 2 | Kalman | ~82 | 15.5% | 48% | 0.988 |
-| 3 | EWMA + Trend | ~72 | 14.9% | 58% | 0.982 |
-| 4 | Linear Regression | ~61 | 17.2% | 55% | 0.982 |
-| 5 | Holt Linear | ~37 | 16.5% | 59% | 0.971 |
-| 6 | AR(3) | ~15 | — | — | 0.978 |
+| # | Algorithm | Composite | accuracy | directional | efficiency | skill% | throughput (pts/s) |
+|---|-----------|-----------|----------|--------------|------------|--------|---------------------|
+| **1** | **EWMA + Trend** | **43.9** | 22 | 15 | 100 | -22.2% | ~3.3M |
+| 2 | Kalman | 43.1 | 43 | 0 | 72 | -10.7% | ~270k |
+| 3 | Holt Linear | 33.8 | 0 | 19 | 100 | -38.9% | ~2.5M |
+| 4 | Game-Theoretic Ensemble (ours) | 30.7 | **53** | 18 | 1 | **-3.7%** | ~10k |
+| 5 | Linear Regression | 26.2 | 15 | 10 | 55 | -25.7% | ~127k |
+| 6 | AR(3) | 21.8 | 28 | 7 | 21 | -18.6% | ~27k |
+
+Note the composite winner (EWMA + Trend) and the most *accurate* algorithm (the game-theoretic
+ensemble — highest `accuracy` score and only positive skill) are different algorithms. That's
+intentional, not a contradiction: the ensemble is ~90x slower (it runs all five other predictors
+internally every step). Whether that matters depends on the deployment: it's essentially free for
+the *live* engine (api.py's monitor_loop calls each predictor once per partition per interval,
+default 5s — even the ensemble's ~50µs/call is negligible against that budget), but it directly
+sets the turnaround time of the 300k+-point large-scale benchmark, a headline feature of this
+repo, where the ensemble takes ~90x longer than EWMA/Holt to process the same dataset. If your use
+case is purely the live engine at a similar partition count/interval, reweight
+`COMPOSITE_WEIGHTS` in `evaluation.py` toward `accuracy` — the ensemble wins outright once
+efficiency is weighted near zero, reproducing the old (v1) leaderboard's conclusion. Numbers vary
+slightly by machine/seed (throughput especially — see the `measure_throughput` docstring for how
+that's mitigated); reproduce with `python -m src.sedp.evaluation`.
 
 **Large-scale benchmark — 320,000 data points** (4 partitions × 80,000 cycles): all six
 algorithms processed the full dataset; throughput ranges from ~1.8M pts/s (EWMA/Holt) down to
 ~20k pts/s (our ensemble, which runs all five experts per step). Our ensemble is the **only**
-one with **positive skill (+6.6%)** at scale. PPEA proactively issued 320k splits + 80k
-reassigns over the run.
+one with **positive skill (+6.6%)** at scale — the accuracy result still stands, it's the
+efficiency cost that the composite now makes explicit. PPEA proactively issued 320k splits +
+80k reassigns over the run.
 
 > Numbers vary slightly by machine/seed; reproduce with the commands in §5.
 
@@ -189,9 +223,20 @@ reassigns over the run.
 - The **lead-time** is identical across predictors in the current synthetic workload because
   `PPEA.split_threshold` (100) is tiny relative to the PPS magnitude — raise it in the
   dashboard sidebar to see calibrated, predictor-dependent behaviour.
-- The game-theoretic algorithm's edge comes from **combining** the other five (the no-regret
-  guarantee is the real theoretical contribution); it is the slowest by design.
+- The game-theoretic algorithm's accuracy edge comes from **combining** the other five (it has
+  strictly more information per step than any single component), so it winning on accuracy
+  metrics is close to guaranteed by construction, not purely a property of Hedge. Its no-regret
+  motivation is also for the idealized fixed-loss-range Hedge setting; this implementation
+  rescales losses by each round's own max error (necessary since forecast error has no known
+  a-priori bound), which is closer to an adaptive-Hedge variant than the textbook bound — see
+  the docstring on `GameTheoreticEnsemble` in `predictors.py`. It is the slowest algorithm by
+  design (runs all five experts every step), which the composite score now accounts for.
 - `evolution_engine.py` logs a warning and continues if no Kafka broker is present — the demo
   data path is the `/ingest` endpoint, not a live Kafka cluster.
+- All six predictors' core math (AR's OLS solver, the Kalman filter's matrix updates, the
+  linear-regression closed form) has been checked against independent numpy/textbook
+  reimplementations and matches to floating-point precision. There are still no automated
+  regression tests for any of this in the repo — the checks above were done ad hoc, not added
+  as a `tests/` suite.
 
 See `paper.md` for the research write-up.

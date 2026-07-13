@@ -177,8 +177,16 @@ class GameTheoreticEnsemble:
     the multiplicative-weights rule  w_i <- w_i * exp(-eta * loss_i).
 
     The committed forecast is the weight-mixed (mixed-strategy) prediction.
-    By the no-regret guarantee of Hedge, the cumulative loss stays within
-    O(sqrt(T log N)) of the *best expert in hindsight*.
+    In the idealized Hedge setting (losses bounded in a *fixed* known range
+    each round), cumulative loss stays within O(sqrt(T log N)) of the *best
+    expert in hindsight*. Caveat: this implementation rescales each round's
+    losses into [0,1] by dividing by that round's own max absolute error
+    (`scale = max(aes)`), not a fixed bound -- necessary since forecast error
+    here has no known a-priori range, but it means the textbook regret proof
+    doesn't transfer unmodified (it's closer in spirit to adaptive/anytime
+    Hedge variants than to the fixed-range setting the O(sqrt(T log N)) bound
+    is stated for). Treat the guarantee as directional motivation for the
+    update rule, not a proven bound on this exact implementation.
 
     Edge over vanilla Hedge — this implementation adds two refinements that
     matter on a multi-regime stream (calm <-> burst):
@@ -199,9 +207,13 @@ class GameTheoreticEnsemble:
     def __init__(self, eta: float = 4.0, share: float = 0.05):
         # eta / share tuned by sweep: Fixed-Share is the dominant lever on this
         # multi-regime workload — it lifts 60-cycle skill from ~-17% (vanilla
-        # Hedge) to ~-4% (composite ~98, ~30 pts clear of #2) and keeps Theil U2
-        # near 1.0, while staying the ONLY algorithm with positive skill at scale
-        # (~+4.7% at 320k). share=0.05 is the balanced operating point.
+        # Hedge) to ~-4%, the best accuracy of the six algorithms, while
+        # staying the ONLY algorithm with positive skill at scale (~+4.7% at
+        # 320k). share=0.05 is the balanced operating point. Accuracy is only
+        # part of the story though: it runs all five experts every step, so
+        # it's the slowest algorithm by ~5-6x -- see evaluation.py's composite
+        # score, which weighs that cost explicitly rather than ranking on
+        # accuracy alone.
         self.eta = eta
         self.share = share        # Fixed-Share rate: keeps the ensemble adaptive
         self.experts = [PREDICTORS[k][2]() for k in self.EXPERT_KEYS]

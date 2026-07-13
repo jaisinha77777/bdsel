@@ -1,9 +1,23 @@
+import sys
+import os
 import streamlit as st
 import requests
 import pandas as pd
 import time
 import math
-API = "http://host.docker.internal:8000"
+
+# streamlit runs this file as a standalone script (not as part of the `src.sedp`
+# package), so absolute imports need the repo root on sys.path -- same pattern
+# eval_dashboard.py uses.
+for cand in ("/app", os.getcwd(), os.path.dirname(os.path.dirname(os.path.dirname(__file__)))):
+    if cand and cand not in sys.path:
+        sys.path.insert(0, cand)
+from src.sedp.predictor import EWMAWithTrend
+
+# Reachable by compose service name on the shared network. host.docker.internal
+# is Docker-Desktop-only DNS and isn't reachable from a plain Linux Docker
+# Engine host, so it's not used as the default here.
+API = os.environ.get("SEDP_API", "http://api:8000")
 
 st.set_page_config(layout="wide")
 st.title("SEDP Dashboard")
@@ -24,24 +38,6 @@ def fetch_partitions():
         return r.json().get("partitions", [])
     except Exception:
         return []
-
-
-class EWMAWithTrendLocal:
-    def __init__(self, alpha=0.3):
-        self.alpha = alpha
-        self.ewma = None
-        self.prev = None
-
-    def update_and_predict(self, x):
-        if self.ewma is None:
-            self.ewma = x
-            self.prev = x
-            trend = 0.0
-        else:
-            self.prev = self.ewma
-            self.ewma = self.alpha * x + (1 - self.alpha) * self.ewma
-            trend = self.ewma - self.prev
-        return self.ewma, trend, self.ewma + trend
 
 
 def fetch_timeseries(partition, metric):
@@ -81,10 +77,10 @@ for p in parts:
     latest_lat = lat_ts[-1][1] if lat_ts else 0.0
 
     # compute EWMA+trend from timeseries of records_per_sec
-    est = EWMAWithTrendLocal()
+    est = EWMAWithTrend()
     for _, v in recs:
         est.update_and_predict(v)
-    ewma, trend, predicted = est.update_and_predict(latest_recs) if recs else (0.0, 0.0, 0.0)
+    predicted = est.update_and_predict(latest_recs)["predicted"] if recs else 0.0
 
     pps = w1 * predicted + w2 * latest_lag + w3 * latest_lat
     rows.append({

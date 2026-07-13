@@ -60,6 +60,11 @@ services:
     build: .
     container_name: sedp-dashboard
     working_dir: /app
+    environment:
+      # reach the api container by its compose service name, not
+      # host.docker.internal (Docker-Desktop-only DNS; unreachable on plain
+      # Linux Docker Engine without an extra_hosts entry we don't set)
+      SEDP_API: http://api:8000
     volumes:
       - ./:/app
     command: streamlit run src/sedp/streamlit_app.py --server.port 8501 --server.address 0.0.0.0
@@ -87,6 +92,8 @@ services:
     build: .
     container_name: sedp-eval
     working_dir: /app
+    environment:
+      SEDP_API: http://api:8000
     volumes:
       - ./:/app
     command: streamlit run src/sedp/eval_dashboard.py --server.port 8502 --server.address 0.0.0.0

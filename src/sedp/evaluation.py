@@ -185,29 +185,135 @@ def monte_carlo(name: str, cycles: int, seeds):
     return out
 
 
-def _normalize(values, higher_better):
-    lo, hi = min(values), max(values)
-    if hi - lo < 1e-12:
-        return [1.0 for _ in values]
-    if higher_better:
-        return [(v - lo) / (hi - lo) for v in values]
-    return [(hi - v) / (hi - lo) for v in values]
+def measure_throughput(name: str, n_points: int = 30_000, seed: int = 0, repeats: int = 5) -> float:
+    """Timing pass (independent of the Monte-Carlo accuracy runs) -> points/sec.
+
+    Not repeated per Monte-Carlo seed: algorithmic cost is ~deterministic
+    given the implementation (input magnitude barely affects Python-level op
+    count). It IS repeated `repeats` times, with GC disabled during each
+    timed region, and the best (max throughput) run is kept -- a single
+    GC-enabled pass was observed to vary 2-3x run-to-run purely from
+    scheduling/GC jitter, enough to move an algorithm's efficiency_score (and
+    thus composite) between otherwise-identical runs. This mirrors what
+    `timeit` does internally: scheduling/GC pauses can only slow a run down,
+    never make it artificially fast, so best-of-N with GC off is the closest
+    cheap estimate of steady-state throughput.
+    """
+    import gc
+    rng = random.Random(seed)
+    series = [50_000.0]
+    for _ in range(n_points - 1):
+        series.append(max(0.0, series[-1] + rng.gauss(0, 4000)))
+
+    best_dt = float("inf")
+    for _ in range(repeats):
+        est = make_predictor(name)
+        gc.disable()
+        try:
+            t0 = time.perf_counter()
+            for v in series:
+                est.update_and_predict(v)
+            best_dt = min(best_dt, time.perf_counter() - t0)
+        finally:
+            gc.enable()
+    return n_points / best_dt if best_dt > 0 else float("inf")
+
+
+# --------------------------------------------------------------------------- #
+# Composite score v2.
+#
+# v1 blended 5 metrics (skill, MAPE, R2, DirAcc, TheilU2) with per-run min-max
+# normalization. Two problems, confirmed empirically against this repo's own
+# 6-algorithm Monte-Carlo run:
+#
+#   1. Redundancy: skill, MAPE, R2 and TheilU2 are all transforms of the same
+#      "error relative to a baseline" construct (corr(skill,R2)=+0.94,
+#      corr(skill,TheilU2)=-0.96, corr(R2,TheilU2)=-0.997). R2 especially has
+#      ~2% dynamic range across all 6 algorithms (0.971-0.988) against
+#      skill's ~33-point range, because SST here is dominated by the
+#      workload's own trend/burst variance, not forecast error -- R2 stays
+#      near 1.0 almost regardless of which algorithm is used. Weighting 4
+#      near-collinear metrics ~equally quadruple-counts one signal while
+#      DirAcc (the one genuinely different axis) gets a single vote.
+#   2. Instability: min-max normalization is relative to whichever algorithms
+#      happen to be in `names`. The same algorithm, byte-identical accuracy,
+#      scored 61.0 when compared against all 6 algorithms but 35.0 against a
+#      2-algorithm subset -- not a property a "score" should have.
+#   3. Blind to cost: the composite ignored throughput entirely, despite the
+#      large-scale benchmark (a stated core deliverable of this repo) showing
+#      a ~90x throughput spread between algorithms.
+#
+# v2 uses three near-orthogonal components, each mapped to an ABSOLUTE [0,100]
+# scale via fixed reference points instead of the comparison set:
+#
+#   accuracy    risk-adjusted skill = skill_mean - Z*skill_std (penalizes
+#               algorithms that are only good on lucky seeds), mapped so 0%
+#               skill (naive parity) = 50pts, +20% = 100pts, -40% = 0pts.
+#   directional DirAcc mapped so 50% (coin-flip) = 0pts, 100% = 100pts.
+#   efficiency  throughput (points/sec) on a log scale: 10k pts/s = 0pts,
+#               1M pts/s = 100pts.
+#
+# composite = 0.5*accuracy + 0.2*directional + 0.3*efficiency
+#
+# Efficiency is weighted at 0.3, but note *why*: in the live engine
+# (api.py's monitor_loop) each predictor runs once per partition per
+# interval (default every 5s), so even the slowest algorithm here (~50us/call)
+# has enormous headroom there -- throughput is NOT the live decision loop's
+# bottleneck at the current interval/partition-count scale. It matters for
+# (a) the 300k+-point large-scale benchmark's turnaround time, a headline
+# feature of this repo, and (b) headroom if the system moves to finer-grained
+# (per-record or sub-second-interval) scoring later. v1 had no way to express
+# this cost dimension at all; weight it down via COMPOSITE_WEIGHTS if neither
+# of those applies to your deployment.
+#
+# EFF_HI=1,000,000 (not the naive "2,000,000 pts/s, roughly what EWMA/Holt
+# measured in the README" choice) is deliberate: on measurement, raw
+# points/sec for cheap predictors like EWMA/Holt swings 2-4x run-to-run from
+# ordinary OS/GC scheduling jitter (verified: 1.3M-4.9M pts/s across repeated
+# measurements of the *same* algorithm, same process). An anchor sitting
+# inside that noise band makes the composite non-reproducible for reasons
+# that have nothing to do with the algorithm. 1,000,000 sits safely below the
+# whole observed noise band for the fast tier (so they saturate to 100
+# consistently) while still leaving room to separate the mid/slow algorithms
+# (Kalman ~360k, linreg ~250k, AR ~34k, the ensemble ~16-20k).
+SKILL_RISK_Z = 1.0
+SKILL_LO, SKILL_HI = -40.0, 20.0           # skill% anchors -> 0pt / 100pt
+EFF_LO, EFF_HI = 10_000.0, 1_000_000.0     # points/sec anchors -> 0pt / 100pt
+COMPOSITE_WEIGHTS = {"accuracy": 0.5, "directional": 0.2, "efficiency": 0.3}
+
+
+def _clip01(x):
+    return 0.0 if x < 0 else (1.0 if x > 1 else x)
+
+
+def _lerp_clip(x, lo, hi):
+    if hi <= lo:
+        return 100.0
+    return 100.0 * _clip01((x - lo) / (hi - lo))
 
 
 def leaderboard(names, cycles, seeds, weights=None):
-    """Composite, normalized 0-100 score across algorithms (Monte-Carlo means)."""
-    w = weights or {"skill": 0.30, "MAPE": 0.20, "R2": 0.20, "DirAcc": 0.15, "TheilU2": 0.15}
+    """Composite, absolute-scale 0-100 score across algorithms (Monte-Carlo means).
+
+    Unlike v1, this does NOT normalize relative to `names`: a given
+    algorithm's composite is the same number regardless of which other
+    algorithms it happens to be compared against (see rationale above
+    COMPOSITE_WEIGHTS).
+    """
+    w = weights or COMPOSITE_WEIGHTS
     rows = [monte_carlo(n, cycles, seeds) for n in names]
-    cols = {
-        "skill": ([r["skill_mean"] for r in rows], True),
-        "MAPE": ([r["MAPE_mean"] for r in rows], False),
-        "R2": ([r["R2_mean"] for r in rows], True),
-        "DirAcc": ([r["DirAcc_mean"] for r in rows], True),
-        "TheilU2": ([r["TheilU2_mean"] for r in rows], False),
-    }
-    norm = {k: _normalize(vals, hb) for k, (vals, hb) in cols.items()}
-    for i, r in enumerate(rows):
-        r["composite"] = round(100 * sum(w[k] * norm[k][i] for k in w), 1)
+    for r in rows:
+        risk_adj_skill = r["skill_mean"] - SKILL_RISK_Z * r["skill_std"]
+        accuracy = _lerp_clip(risk_adj_skill, SKILL_LO, SKILL_HI)
+        directional = _lerp_clip(r["DirAcc_mean"], 50.0, 100.0)
+        thr = measure_throughput(r["algorithm"])
+        efficiency = _lerp_clip(math.log10(max(thr, 1.0)), math.log10(EFF_LO), math.log10(EFF_HI))
+        r["throughput_pts_per_s"] = round(thr)
+        r["accuracy_score"] = round(accuracy, 1)
+        r["directional_score"] = round(directional, 1)
+        r["efficiency_score"] = round(efficiency, 1)
+        r["composite"] = round(w["accuracy"] * accuracy + w["directional"] * directional
+                                + w["efficiency"] * efficiency, 1)
     rows.sort(key=lambda r: r["composite"], reverse=True)
     for rank, r in enumerate(rows, 1):
         r["rank"] = rank
@@ -252,19 +358,43 @@ def large_scale_benchmark(n_points: int = 320_000, seed: int = 7,
         dt = time.perf_counter() - t0
         m = _accuracy(all_pairs, all_naive)
         n_pred = len(all_pairs)
+        throughput = n_pred / dt if dt > 0 else 0.0
+        # Same absolute-scale composite as leaderboard() (see COMPOSITE_WEIGHTS
+        # above), reusing this run's own real throughput instead of a separate
+        # measure_throughput() timing pass. No risk-adjustment term here (that
+        # needs a skill std across Monte-Carlo seeds; this is a single seed at
+        # full scale, not repeated seeds).
+        accuracy_score = _lerp_clip(m["skill"], SKILL_LO, SKILL_HI)
+        directional_score = _lerp_clip(m["DirAcc"], 50.0, 100.0)
+        efficiency_score = _lerp_clip(math.log10(max(throughput, 1.0)),
+                                       math.log10(EFF_LO), math.log10(EFF_HI))
+        composite = (COMPOSITE_WEIGHTS["accuracy"] * accuracy_score
+                     + COMPOSITE_WEIGHTS["directional"] * directional_score
+                     + COMPOSITE_WEIGHTS["efficiency"] * efficiency_score)
         results.append({
             "algorithm": name, "label": label(name), "family": family(name),
             "points_processed": n_pred,
             "time_s": round(dt, 3),
-            "throughput_pts_per_s": round(n_pred / dt) if dt > 0 else 0,
+            "throughput_pts_per_s": round(throughput) if dt > 0 else 0,
             "us_per_point": round(dt / n_pred * 1e6, 3) if n_pred else 0,
             "MAE": round(m["MAE"], 1), "RMSE": round(m["RMSE"], 1),
             "MAPE": round(m["MAPE"], 2), "R2": round(m["R2"], 4),
-            "skill": round(m["skill"], 1),
+            "skill": round(m["skill"], 1), "DirAcc": round(m["DirAcc"], 1),
+            "accuracy_score": round(accuracy_score, 1),
+            "directional_score": round(directional_score, 1),
+            "efficiency_score": round(efficiency_score, 1),
+            "composite": round(composite, 1),
         })
 
-    # PPEA decision pass at scale, using the most accurate algorithm (highest R2)
-    best = max(results, key=lambda r: r["R2"])
+    # R2 is reported below (best_by_r2) for transparency, but it's not used to
+    # pick which algorithm drives the PPEA decision pass: at full 320k scale
+    # R2 rounds to 1.0000 for all six algorithms (SST is dominated by the
+    # workload's own trend, not forecast error -- same degeneracy documented
+    # on COMPOSITE_WEIGHTS above), so max(results, key=R2) just returns
+    # whichever algorithm happens to be first among ties, not a real choice.
+    # composite doesn't degenerate the same way, so it drives the pass instead.
+    most_accurate_by_r2 = max(results, key=lambda r: r["R2"])
+    best = max(results, key=lambda r: r["composite"])
     if progress:
         progress(0.85, f"Running PPEA decisions at scale ({best['label']})…")
     t0 = time.perf_counter()
@@ -289,7 +419,8 @@ def large_scale_benchmark(n_points: int = 320_000, seed: int = 7,
             "platform": platform.platform(),
             "processor": platform.processor() or "n/a",
         },
-        "best_by_r2": best["label"],
+        "best_by_r2": most_accurate_by_r2["label"],
+        "best_by_composite": best["label"],
         "ppea_decisions": dc["ppea"],
         "baseline_decisions": dc["baseline"],
         "results": results,
@@ -302,12 +433,15 @@ def cli_report(cycles=60, seeds=(1, 2, 3, 4, 5), split_threshold=100.0):
     print(f"\nSEDP ALGORITHM COMPARISON  (cycles={cycles}, seeds={len(seeds)}, split_th={split_threshold})")
     print("=" * 92)
     board = leaderboard(names, cycles, list(seeds))
-    print(f"{'#':>2}  {'algorithm':<26}{'family':<13}{'skill%':>8}{'MAPE%':>8}"
-          f"{'R2':>7}{'DirAcc%':>9}{'Theil':>7}{'score':>8}")
+    print("composite = 0.5*accuracy(risk-adj. skill) + 0.2*directional(DirAcc) + 0.3*efficiency(throughput),"
+          " each on a fixed absolute 0-100 scale (see evaluation.py docstring above COMPOSITE_WEIGHTS)")
+    print(f"{'#':>2}  {'algorithm':<26}{'family':<13}{'skill%':>8}{'DirAcc%':>9}"
+          f"{'pts/s':>10}{'acc':>6}{'dir':>6}{'eff':>6}{'score':>8}")
     for r in board:
         print(f"{r['rank']:>2}  {r['label']:<26}{r['family']:<13}"
-              f"{r['skill_mean']:>8.1f}{r['MAPE_mean']:>8.2f}{r['R2_mean']:>7.3f}"
-              f"{r['DirAcc_mean']:>9.1f}{r['TheilU2_mean']:>7.3f}{r['composite']:>8.1f}")
+              f"{r['skill_mean']:>8.1f}{r['DirAcc_mean']:>9.1f}"
+              f"{r['throughput_pts_per_s']:>10,}{r['accuracy_score']:>6.0f}"
+              f"{r['directional_score']:>6.0f}{r['efficiency_score']:>6.0f}{r['composite']:>8.1f}")
     wl = gen_workload(cycles, seeds[0])
     print("\nProactive lead-time vs reactive baseline (hot partition, single seed):")
     for n in names:

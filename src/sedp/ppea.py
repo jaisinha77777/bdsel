@@ -56,7 +56,7 @@ class PPEA:
             if s1 < self.merge_threshold and s2 < self.merge_threshold:
                 actions.append(("merge", (p1, p2), max(s1, s2)))
 
-        if stddev > self.reassign_threshold * mean if mean>0 else False:
+        if mean > 0 and stddev > self.reassign_threshold * mean:
             # reassign: highest PPS
             high = max(pps.items(), key=lambda x: x[1])[0]
             actions.append(("reassign", high, pps[high]))

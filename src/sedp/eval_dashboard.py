@@ -23,10 +23,14 @@ for cand in ("/app", os.getcwd(), os.path.dirname(os.path.dirname(os.path.dirnam
 
 import streamlit as st
 import pandas as pd
+import altair as alt
 from src.sedp.predictors import PREDICTORS, label, family
 from src.sedp import evaluation as ev
 
-API = os.environ.get("SEDP_API", "http://host.docker.internal:8000")
+# Reachable by compose service name on the shared network. host.docker.internal
+# is Docker-Desktop-only DNS and isn't reachable from a plain Linux Docker
+# Engine host, so it's not used as the default here.
+API = os.environ.get("SEDP_API", "http://api:8000")
 ALL = list(PREDICTORS.keys())
 
 st.set_page_config(layout="wide", page_title="SEDP · Algorithm Evaluation")
@@ -68,7 +72,13 @@ st.sidebar.divider()
 cycles = st.sidebar.slider("Workload cycles", 30, 150, 60, 10)
 base_seed = st.sidebar.number_input("Base seed", value=1, step=1)
 mc_runs = st.sidebar.slider("Monte-Carlo runs (seeds)", 1, 12, 5)
-split_th = st.sidebar.number_input("PPEA split_threshold", value=100.0, step=50.0)
+split_th = st.sidebar.number_input(
+    "PPEA split_threshold", value=100.0, step=5000.0,
+    help="PPS scales with load magnitude (often tens/hundreds of thousands here), so the "
+         "default of 100 is trivially exceeded by every algorithm on cycle 0 -- that's why "
+         "Lead-time & Decisions can look identical across algorithms until you raise this. "
+         "Try 50,000+ to see real per-algorithm differences. You can also type an exact value "
+         "directly into the box instead of using the +/- steppers.")
 seeds = tuple(range(int(base_seed), int(base_seed) + mc_runs))
 st.sidebar.divider()
 st.sidebar.header("🔥 Stress test")
@@ -89,30 +99,74 @@ tabs = st.tabs(["🏆 Leaderboard", "🎯 Accuracy", "⏱ Lead-time & Decisions"
 # ============================================================ TAB 1: leaderboard
 with tabs[0]:
     st.subheader("Composite leaderboard")
-    st.caption(f"Monte-Carlo over {mc_runs} seed(s), {cycles} cycles. "
-               "Composite = 0.30·skill + 0.20·(1−MAPE) + 0.20·R² + 0.15·DirAcc + 0.15·(1−Theil), normalized 0–100.")
-    with st.spinner("Scoring algorithms…"):
+    st.caption(
+        f"Monte-Carlo over {mc_runs} seed(s), {cycles} cycles. "
+        "Composite = 0.5·accuracy + 0.2·directional + 0.3·efficiency, each on a **fixed absolute** "
+        "0–100 scale (not normalized against the algorithms picked below, so a score is comparable "
+        "across runs). accuracy = risk-adjusted skill (mean skill − 1·std, penalizing seed-to-seed "
+        "inconsistency), mapped so 0% skill (naive parity) = 50pt, +20% = 100pt, −40% = 0pt. "
+        "directional = DirAcc mapped so 50% (coin-flip) = 0pt, 100% = 100pt. efficiency = throughput "
+        "on a log scale, 10k pts/s = 0pt, 1M pts/s = 100pt (this matters for the large-scale batch "
+        "benchmark's turnaround time, not the live engine — see the info box below). MAPE/R²/TheilU2 "
+        "are still shown below for transparency but are no longer part of the score — they're highly "
+        "correlated with skill on this workload (|r| > 0.94) and R² in particular has ~2% dynamic "
+        "range across all 6 algorithms, so they add redundancy rather than signal."
+    )
+    with st.spinner("Scoring algorithms… (includes a throughput timing pass per algorithm)"):
         board = cached_leaderboard(tuple(compare), cycles, seeds)
     lb = pd.DataFrame([{
         "rank": r["rank"], "algorithm": r["label"], "family": r["family"],
         "score": r["composite"],
-        "skill%": round(r["skill_mean"], 1), "MAPE%": round(r["MAPE_mean"], 2),
-        "R²": round(r["R2_mean"], 3), "DirAcc%": round(r["DirAcc_mean"], 1),
+        "accuracy": r["accuracy_score"], "directional": r["directional_score"],
+        "efficiency": r["efficiency_score"],
+        "skill%": round(r["skill_mean"], 1), "± skill": round(r["skill_std"], 1),
+        "DirAcc%": round(r["DirAcc_mean"], 1),
+        "throughput (pts/s)": r["throughput_pts_per_s"],
+        "MAPE%": round(r["MAPE_mean"], 2), "R²": round(r["R2_mean"], 3),
         "Theil U2": round(r["TheilU2_mean"], 3),
-        "± (skill std)": round(r["skill_std"], 1),
     } for r in board])
     best = board[0]
+    fastest = max(board, key=lambda r: r["throughput_pts_per_s"])
+    most_accurate = max(board, key=lambda r: r["accuracy_score"])
     c1, c2, c3 = st.columns(3)
-    c1.metric("🥇 Best algorithm", best["label"], f"score {best['composite']}")
-    c2.metric("Best R²", f"{best['R2_mean']:.3f}")
-    c3.metric("Best Theil U2", f"{best['TheilU2_mean']:.3f}",
-              help="< 1 means it beats the naive baseline on RMSE")
+    c1.metric("🥇 Best composite", best["label"], f"score {best['composite']}")
+    c2.metric("🎯 Best accuracy (risk-adj. skill)", most_accurate["label"],
+              f"{most_accurate['accuracy_score']} pt")
+    c3.metric("⚡ Fastest", fastest["label"], f"{fastest['throughput_pts_per_s']:,} pts/s")
     st.dataframe(lb, use_container_width=True)
     cc1, cc2 = st.columns(2)
-    cc1.caption("Composite score")
-    cc1.bar_chart(lb.set_index("algorithm")["score"])
-    cc2.caption("Prediction skill vs naive (%)")
-    cc2.bar_chart(lb.set_index("algorithm")["skill%"])
+    cc1.caption("Composite score (accuracy + directional + efficiency)")
+    # st.bar_chart (not st.altair_chart) is avoided here: Streamlit's native
+    # bar_chart/line_chart key their underlying Vega-Lite dataset by Python
+    # object id() internally, which is a long-standing Streamlit bug ("Error:
+    # Unrecognized data set: <id>") on back-to-back native charts in the same
+    # run, especially on older Streamlit releases like the 1.22.0 pinned in
+    # requirements.txt. Building the chart explicitly with altair sidesteps
+    # that code path entirely (altair is already a bundled Streamlit
+    # dependency, so this adds no new package).
+    score_chart = alt.Chart(lb[["algorithm", "score"]]).mark_bar().encode(
+        x=alt.X("algorithm:N", title=None, sort=None),
+        y=alt.Y("score:Q", title="composite score"),
+        tooltip=["algorithm", "score"],
+    )
+    cc1.altair_chart(score_chart, use_container_width=True)
+    cc2.caption("Component breakdown")
+    breakdown_long = lb[["algorithm", "accuracy", "directional", "efficiency"]].melt(
+        id_vars="algorithm", var_name="component", value_name="value")
+    breakdown_chart = alt.Chart(breakdown_long).mark_bar().encode(
+        x=alt.X("algorithm:N", title=None, sort=None),
+        y=alt.Y("value:Q", title="score", stack=True),
+        color=alt.Color("component:N", title="component"),
+        tooltip=["algorithm", "component", "value"],
+    )
+    cc2.altair_chart(breakdown_chart, use_container_width=True)
+    if best["label"] != most_accurate["label"]:
+        st.info(f"**{most_accurate['label']}** has the best raw accuracy, but **{best['label']}** wins "
+                f"on the composite once throughput is weighed in. This trade-off mainly matters for "
+                f"batch/backtest turnaround (e.g. the 300k+-point large-scale benchmark) — the *live* "
+                f"engine calls a predictor once per partition per interval (default 5s), where even "
+                f"the slowest algorithm here has huge headroom. Reweight `COMPOSITE_WEIGHTS` toward "
+                f"`accuracy` in evaluation.py if only the live-engine cost applies to you.")
     st.success(f"Recommendation: **{best['label']}** ({best['family']} family) — "
                f"highest composite score across {mc_runs} randomized workloads.")
 
@@ -288,11 +342,14 @@ with tabs[4]:
         with colA:
             verdict = "✅ PASSED" if bench["data_points"] >= 300_000 else "ℹ️"
             st.markdown(f"### {verdict} — tested on **{bench['data_points']:,} data points**")
-            m1, m2, m3 = st.columns(3)
+            m1, m2, m3, m4 = st.columns(4)
             m1.metric("Data points", f"{bench['data_points']:,}")
             m2.metric("Partitions × cycles",
                       f"{bench['partitions']} × {bench['cycles_per_partition']:,}")
             m3.metric("Most accurate (R²)", bench["best_by_r2"])
+            m4.metric("Best composite", bench.get("best_by_composite", "n/a (older benchmark file)"),
+                      help="accuracy+directional+efficiency composite computed from this run's own "
+                           "at-scale throughput -- see evaluation.py COMPOSITE_WEIGHTS")
             st.caption(f"Generated {bench['generated_utc']} · "
                        f"Python {bench['environment']['python']} · {bench['environment']['platform']}")
 
@@ -301,6 +358,7 @@ with tabs[4]:
             "throughput (pts/s)": r["throughput_pts_per_s"],
             "time (s)": r["time_s"], "µs/point": r["us_per_point"],
             "MAE": r["MAE"], "RMSE": r["RMSE"], "R²": r["R2"], "skill%": r["skill"],
+            "composite": r.get("composite", None),
         } for r in bench["results"]]).sort_values("throughput (pts/s)", ascending=False)
         st.markdown("**Per-algorithm performance at scale**")
         st.dataframe(rdf, use_container_width=True)

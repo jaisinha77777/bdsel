@@ -1,8 +1,12 @@
 """Evaluation harness for SEDP vs baseline.
 This script runs scenarios (simulated) and collects metrics for plotting.
 """
+import os
+import sys
 import time
 import csv
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from src.sedp.predictor import EWMAWithTrend
 from src.sedp.ppea import PPEA
 

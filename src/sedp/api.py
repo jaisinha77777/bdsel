@@ -23,11 +23,23 @@ ACTIVE_PREDICTOR = os.environ.get("SEDP_PREDICTOR", DEFAULT_PREDICTOR)
 ppea = PPEA(log_csv="sedp_actions.csv")
 KAFKA_BOOTSTRAP = os.environ.get("SEDP_KAFKA", "localhost:9092")
 MAX_PARTITIONS = int(os.environ.get("SEDP_MAX_PARTITIONS", "16"))
-evolution = EvolutionEngine(kafka_bootstrap_servers=KAFKA_BOOTSTRAP, max_partitions=MAX_PARTITIONS)
+evolution = EvolutionEngine(kafka_bootstrap_servers=KAFKA_BOOTSTRAP, max_partitions=MAX_PARTITIONS,
+                             initial_partitions=4)
 feedback = FeedbackController(log_csv="sedp_feedback.csv")
 
-# per-partition predictors (instances of the active algorithm)
+# per-partition predictors (instances of the active algorithm). Accessed both
+# from request handlers (main asyncio thread) and monitor_loop (background
+# thread), so get-or-create must be atomic -- a race here can silently
+# reinitialize a partition's forecasting state mid-stream.
 predictors: Dict[int, object] = {}
+predictors_lock = threading.Lock()
+
+
+def get_predictor(partition: int):
+    with predictors_lock:
+        if partition not in predictors:
+            predictors[partition] = make_predictor(ACTIVE_PREDICTOR)
+        return predictors[partition]
 
 
 @app.get("/algorithm")
@@ -92,11 +104,9 @@ async def get_pps():
     parts = monitor.partitions()
     pps_map = {}
     for p in parts:
-        if p not in predictors:
-            predictors[p] = make_predictor(ACTIVE_PREDICTOR)
         # use latest records_per_sec
         r = monitor.latest(p, "records_per_sec")
-        pred = predictors[p].update_and_predict(r)["predicted"]
+        pred = get_predictor(p).update_and_predict(r)["predicted"]
         lag = monitor.latest(p, "consumer_lag")
         lat = monitor.latest(p, "processing_latency_ms")
         pps_map[p] = ppea.compute_pps(pred, lag, lat)
@@ -117,13 +127,10 @@ async def comparison():
     rows = []
 
     for p in parts:
-        if p not in predictors:
-            predictors[p] = make_predictor(ACTIVE_PREDICTOR)
-
         records_per_sec = monitor.latest(p, "records_per_sec")
         lag = monitor.latest(p, "consumer_lag")
         latency = monitor.latest(p, "processing_latency_ms")
-        predicted = predictors[p].update_and_predict(records_per_sec)["predicted"]
+        predicted = get_predictor(p).update_and_predict(records_per_sec)["predicted"]
 
         partition_metrics[p] = {
             "predicted_load": predicted,
@@ -188,10 +195,8 @@ def monitor_loop(interval: int = 5):
         # snapshot before decisions
         snapshot = {}
         for p in parts:
-            if p not in predictors:
-                predictors[p] = make_predictor(ACTIVE_PREDICTOR)
             latest_r = monitor.latest(p, "records_per_sec")
-            pred = predictors[p].update_and_predict(latest_r)["predicted"]
+            pred = get_predictor(p).update_and_predict(latest_r)["predicted"]
             lag = monitor.latest(p, "consumer_lag")
             lat = monitor.latest(p, "processing_latency_ms")
             partition_metrics[p] = {"predicted_load": pred, "consumer_lag": lag, "processing_latency": lat}

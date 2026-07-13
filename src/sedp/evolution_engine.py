@@ -7,16 +7,30 @@ logger = logging.getLogger("evolution")
 
 class EvolutionEngine:
     def __init__(self, kafka_bootstrap_servers="localhost:9092", topic="sedp-topic",
-                 routing_table=None, max_partitions=16):
+                 routing_table=None, max_partitions=16, initial_partitions=1):
         self.kafka = None
         self.servers = kafka_bootstrap_servers
         self.topic = topic
         self.routing_table = routing_table or {}
-        # Hard cap on real Kafka partitions. Splitting changes hash(key) % N, which
-        # moves the hotspot and re-triggers a split -> unbounded growth. The cap
-        # turns split into a no-op once reached, breaking the feedback loop.
+        # Hard cap on partitions (real Kafka or logical/no-broker). Splitting
+        # changes hash(key) % N, which moves the hotspot and re-triggers a
+        # split -> unbounded growth. The cap turns split into a no-op once
+        # reached, breaking the feedback loop.
         self.max_partitions = max_partitions
-        self._ensure_kafka()
+        # Explicit logical partition counter. Used (and kept authoritative)
+        # whenever no live broker is available, so the cap above is enforced
+        # identically with or without Kafka -- previously it was only checked
+        # inside the `if self.kafka:` branch, so no-broker runs (the default
+        # docker-compose demo path) split without limit.
+        self._partition_count = max(1, initial_partitions)
+        # No eager _ensure_kafka() call here: this constructor runs at api.py
+        # module-import time, before Kafka has any chance to be ready, and
+        # every use site below (split_partition) already calls
+        # _ensure_kafka() lazily before touching self.kafka -- exactly what
+        # _ensure_kafka's own docstring says should happen. Calling it eagerly
+        # here just guaranteed a "Kafka admin client unavailable" warning on
+        # every cold start instead of letting the first real use retry once
+        # Kafka has had time to come up.
 
     def _ensure_kafka(self):
         """(Re)connect the admin client lazily. The broker is often not ready at
@@ -34,17 +48,18 @@ class EvolutionEngine:
         """Increase topic partitions by 1 and update routing table. Uses Kafka create_partitions when available."""
         try:
             self._ensure_kafka()
+            # Cap applies whether or not a broker is connected.
+            current = self._current_partitions()
+            if current >= self.max_partitions:
+                logger.info("Split skipped: at max_partitions cap (%d)", self.max_partitions)
+                return False
             if self.kafka:
-                # increase partitions by 1
-                current = self._current_partitions()
-                if current >= self.max_partitions:
-                    logger.info("Split skipped: at max_partitions cap (%d)", self.max_partitions)
-                    return False
                 new_total = current + 1
                 self.kafka.create_partitions({self.topic: NewPartitions(total_count=new_total)})
                 logger.info("Increased partitions to %d", new_total)
             # update routing table: logical split mapping
             self._update_routing_on_split(partition)
+            self._partition_count = current + 1
             return True
         except Exception as e:
             logger.exception("Split failed: %s", e)
@@ -72,14 +87,17 @@ class EvolutionEngine:
             return False
 
     def _current_partitions(self):
-        # query the broker for the real partition count; fall back to routing size.
-        # kafka-python 2.0.2 returns describe_topics entries as dicts.
-        try:
-            entry = self.kafka.describe_topics([self.topic])[0]
-            parts = entry["partitions"] if isinstance(entry, dict) else entry.partitions
-            return len(parts)
-        except Exception:
-            return len(self.routing_table) or 1
+        # query the broker for the real partition count when connected; otherwise
+        # use the explicitly tracked logical count (not routing_table size, which
+        # only grows on split and doesn't reflect the true starting partition count).
+        if self.kafka:
+            try:
+                entry = self.kafka.describe_topics([self.topic])[0]
+                parts = entry["partitions"] if isinstance(entry, dict) else entry.partitions
+                return len(parts)
+            except Exception:
+                pass
+        return self._partition_count
 
     def _update_routing_on_split(self, partition):
         # split mapping: existing partition routes half of keys to new partition id = max+1
