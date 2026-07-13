@@ -98,14 +98,9 @@ questions; see §6.
 - **Lead-time** — how many cycles **earlier** PPEA acts vs the reactive baseline.
 - **Throughput** — points/sec processed. Now part of the composite (see below), not just the
   large-scale benchmark, since it's what actually limits which algorithm can run live.
-- **Composite score** — `0.5·accuracy + 0.2·directional + 0.3·efficiency`, each mapped to a
-  **fixed absolute** 0–100 scale (not normalized against whichever algorithms you happen to be
-  comparing — a score means the same thing regardless of the comparison set). `accuracy` is
-  risk-adjusted skill (mean − 1·std across Monte-Carlo seeds, so an algorithm that's only good on
-  lucky seeds doesn't get full credit). `efficiency` is throughput on a log scale. See the
-  docstring above `COMPOSITE_WEIGHTS` in `evaluation.py` for the full rationale, including the
-  measurements (metric correlations, min-max instability) that motivated dropping MAPE/R²/Theil
-  from the score.
+- **Composite score** — `composite = 0.5·accuracy + 0.2·directional + 0.3·efficiency` (each on a
+  fixed absolute 0–100 scale). See the docstring above `COMPOSITE_WEIGHTS` in `evaluation.py` for
+  the full rationale.
 
 ---
 

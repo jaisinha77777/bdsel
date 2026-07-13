@@ -101,14 +101,8 @@ with tabs[0]:
     st.subheader("Composite leaderboard")
     st.caption(
         f"Monte-Carlo over {mc_runs} seed(s), {cycles} cycles. "
-        "Composite = 0.5·accuracy + 0.2·directional + 0.3·efficiency, each on a **fixed absolute** "
-        "0–100 scale (not normalized against the algorithms picked below, so a score is comparable "
-        "across runs). accuracy = risk-adjusted skill (mean skill − 1·std, penalizing seed-to-seed "
-        "inconsistency), mapped so 0% skill (naive parity) = 50pt, +20% = 100pt, −40% = 0pt. "
-        "directional = DirAcc mapped so 50% (coin-flip) = 0pt, 100% = 100pt. efficiency = throughput "
-        "on a log scale, 10k pts/s = 0pt, 1M pts/s = 100pt (this matters for the large-scale batch "
-        "benchmark's turnaround time, not the live engine — see the info box below). MAPE/R²/TheilU2 "
-        "are still shown below for transparency but are no longer part of the score — they're highly "
+        "Composite = 0.5·accuracy + 0.2·directional + 0.3·efficiency (fixed absolute 0–100 scale each). "
+        "MAPE/R²/TheilU2 are still shown below for transparency but are no longer part of the score — they're highly "
         "correlated with skill on this workload (|r| > 0.94) and R² in particular has ~2% dynamic "
         "range across all 6 algorithms, so they add redundancy rather than signal."
     )
