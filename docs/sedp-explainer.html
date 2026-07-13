@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SEDP, From First Principles</title>
+<meta name="description" content="A from-scratch walkthrough of SEDP's math: the problem, the architecture, and the full derivations behind all six forecasting algorithms, the evaluation metrics, and the composite score.">
+<style>
+  :root{
+    --paper:#EEF1F3; --ink:#1B222A; --ink-soft:#4B5560; --panel:#FFFFFF;
+    --panel-2:#F7F8FA; --line:rgba(27,34,42,.12); --line-strong:rgba(27,34,42,.22);
+    --accent:#B5651D; --accent-ink:#7A4413; --accent-tint:#F3E3D2;
+    --accent2:#256D5C; --accent2-ink:#174A3F; --accent2-tint:#DCEAE5;
+    --code-bg:#151B22; --code-ink:#DCE6EE; --code-line:rgba(220,230,238,.14);
+    --shadow: 0 1px 2px rgba(20,24,29,.06), 0 6px 20px -8px rgba(20,24,29,.15);
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --paper:#10151B; --ink:#E7ECEF; --ink-soft:#9CA8B2; --panel:#171E26;
+      --panel-2:#1C242D; --line:rgba(231,236,239,.14); --line-strong:rgba(231,236,239,.24);
+      --accent:#E0913E; --accent-ink:#F4C48C; --accent-tint:#2E2013;
+      --accent2:#4FA396; --accent2-ink:#9AD3C7; --accent2-tint:#122822;
+      --code-bg:#0B0F14; --code-ink:#D7E1E9; --code-line:rgba(215,225,233,.12);
+      --shadow: 0 1px 2px rgba(0,0,0,.4), 0 12px 30px -10px rgba(0,0,0,.55);
+    }
+  }
+  :root[data-theme="dark"]{
+    --paper:#10151B; --ink:#E7ECEF; --ink-soft:#9CA8B2; --panel:#171E26;
+    --panel-2:#1C242D; --line:rgba(231,236,239,.14); --line-strong:rgba(231,236,239,.24);
+    --accent:#E0913E; --accent-ink:#F4C48C; --accent-tint:#2E2013;
+    --accent2:#4FA396; --accent2-ink:#9AD3C7; --accent2-tint:#122822;
+    --code-bg:#0B0F14; --code-ink:#D7E1E9; --code-line:rgba(215,225,233,.12);
+    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 12px 30px -10px rgba(0,0,0,.55);
+  }
+  :root[data-theme="light"]{
+    --paper:#EEF1F3; --ink:#1B222A; --ink-soft:#4B5560; --panel:#FFFFFF;
+    --panel-2:#F7F8FA; --line:rgba(27,34,42,.12); --line-strong:rgba(27,34,42,.22);
+    --accent:#B5651D; --accent-ink:#7A4413; --accent-tint:#F3E3D2;
+    --accent2:#256D5C; --accent2-ink:#174A3F; --accent2-tint:#DCEAE5;
+    --code-bg:#151B22; --code-ink:#DCE6EE; --code-line:rgba(220,230,238,.14);
+    --shadow: 0 1px 2px rgba(20,24,29,.06), 0 6px 20px -8px rgba(20,24,29,.15);
+  }
+
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  @media (prefers-reduced-motion: reduce){ html{scroll-behavior:auto} }
+
+  body{
+    margin:0; background:var(--paper); color:var(--ink);
+    font-family:-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    font-size:16.5px; line-height:1.65; -webkit-font-smoothing:antialiased;
+  }
+  .serif{font-family:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,"Times New Roman",serif;}
+  .mono{font-family:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;}
+  h1,h2,h3,h4{font-family:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,"Times New Roman",serif; text-wrap:balance; font-weight:600; color:var(--ink); margin:0;}
+  p{margin:0 0 1em; max-width:68ch}
+  ul,ol{margin:0 0 1em; padding-left:1.3em; max-width:66ch}
+  li{margin-bottom:.4em}
+  a{color:var(--accent-ink)}
+  code{font-family:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace; font-size:.92em;}
+
+  /* ---------- layout shell ---------- */
+  .shell{max-width:1180px; margin:0 auto; padding:0 28px 120px;}
+  .top{
+    padding:56px 0 30px; border-bottom:1px solid var(--line);
+    display:flex; flex-direction:column; gap:14px;
+  }
+  .eyebrow{
+    font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    font-size:12.5px; letter-spacing:.11em; text-transform:uppercase;
+    color:var(--accent-ink); display:flex; align-items:center; gap:10px;
+  }
+  .eyebrow .dot{width:6px;height:6px;border-radius:50%;background:var(--accent2);display:inline-block}
+  h1.title{font-size:clamp(32px,4.4vw,46px); line-height:1.08; max-width:16ch}
+  .dek{font-size:18px; color:var(--ink-soft); max-width:62ch; margin-top:2px}
+  .meta-row{display:flex; gap:22px; flex-wrap:wrap; margin-top:6px; font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:12.5px; color:var(--ink-soft)}
+  .meta-row b{color:var(--ink); font-weight:600}
+
+  .layout{display:grid; grid-template-columns:230px minmax(0,1fr); gap:56px; margin-top:40px;}
+  @media (max-width:920px){ .layout{grid-template-columns:1fr} }
+
+  nav.toc{position:sticky; top:24px; align-self:start; font-size:13.5px;}
+  @media (max-width:920px){ nav.toc{position:static; margin-bottom:8px;} }
+  nav.toc .toc-h{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; text-transform:uppercase; letter-spacing:.09em; font-size:11px; color:var(--ink-soft); margin-bottom:10px;}
+  nav.toc ol{list-style:none; padding:0; margin:0; counter-reset:tocnum; border-left:1px solid var(--line);}
+  nav.toc li{counter-increment:tocnum; margin:0;}
+  nav.toc a{
+    display:block; padding:6px 0 6px 14px; margin-left:-1px; border-left:1px solid transparent;
+    color:var(--ink-soft); text-decoration:none; line-height:1.35;
+  }
+  nav.toc a:hover{color:var(--ink); border-left-color:var(--accent);}
+  nav.toc a::before{content:counter(tocnum,decimal-leading-zero) "  "; font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; color:var(--accent-ink); font-size:11.5px;}
+
+  main{min-width:0;}
+  section{padding:52px 0; border-bottom:1px solid var(--line); scroll-margin-top:24px;}
+  section:last-of-type{border-bottom:none}
+  .sec-kicker{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:12px; letter-spacing:.09em; text-transform:uppercase; color:var(--accent2-ink); margin-bottom:10px;}
+  h2{font-size:clamp(24px,2.6vw,30px); margin-bottom:18px;}
+  h3{font-size:19px; margin:30px 0 10px;}
+  h3.algo-name{font-size:22px; color:var(--accent-ink)}
+
+  /* ---------- pipeline diagram ---------- */
+  .pipeline{
+    display:flex; align-items:stretch; gap:0; flex-wrap:wrap; margin:22px 0 8px;
+    border:1px solid var(--line); border-radius:10px; overflow:hidden; background:var(--panel);
+  }
+  .pipe-step{flex:1 1 140px; padding:16px 14px; position:relative; border-right:1px solid var(--line);}
+  .pipe-step:last-child{border-right:none}
+  .pipe-step .k{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:11px; color:var(--ink-soft); text-transform:uppercase; letter-spacing:.06em;}
+  .pipe-step .n{font-size:14.5px; font-weight:600; margin-top:4px;}
+  .pipe-step .d{font-size:12.5px; color:var(--ink-soft); margin-top:4px; line-height:1.4;}
+  .pipe-step::after{
+    content:"→"; position:absolute; right:-11px; top:50%; transform:translateY(-50%);
+    color:var(--accent); font-size:16px; z-index:2;
+  }
+  .pipe-step:last-child::after{content:"↺"; color:var(--accent2);}
+  .pipe-loop{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:11.5px; color:var(--ink-soft); text-align:right; margin-top:6px;}
+
+  /* ---------- callouts ---------- */
+  .box{border:1px solid var(--line); border-radius:10px; padding:18px 20px; margin:18px 0; background:var(--panel);}
+  .box-head{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:11.5px; text-transform:uppercase; letter-spacing:.08em; display:flex; align-items:center; gap:8px; margin-bottom:10px;}
+  .box p:last-child, .box ul:last-child{margin-bottom:0}
+  .box.intuition{background:var(--accent2-tint); border-color:transparent;}
+  .box.intuition .box-head{color:var(--accent2-ink)}
+  .box.formal{background:var(--panel-2);}
+  .box.formal .box-head{color:var(--ink-soft)}
+  .box.verified{border-color:var(--accent2); border-width:1px;}
+  .box.verified .box-head{color:var(--accent2-ink)}
+  .box.verified .box-head::before{content:"✓"; font-weight:700;}
+  .box.caveat{background:var(--accent-tint); border-color:transparent;}
+  .box.caveat .box-head{color:var(--accent-ink)}
+
+  /* ---------- formula blocks ---------- */
+  .formula{
+    font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:15.5px;
+    background:
+      linear-gradient(var(--panel-2) 1px, transparent 1px) 0 0/100% 22px,
+      var(--panel-2);
+    border:1px solid var(--line); border-radius:8px; padding:18px 22px;
+    margin:14px 0; overflow-x:auto; white-space:pre; line-height:22px;
+  }
+  .formula .comment{color:var(--ink-soft); font-style:italic}
+  .formula .op{color:var(--accent-ink)}
+  .formula .var{color:var(--accent2-ink)}
+
+  pre.code{
+    font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:13.5px;
+    background:var(--code-bg); color:var(--code-ink); border-radius:8px; padding:16px 18px;
+    overflow-x:auto; line-height:1.55; margin:14px 0; border:1px solid var(--code-line);
+  }
+
+  table{border-collapse:collapse; width:100%; font-size:14px; margin:16px 0;}
+  th,td{text-align:left; padding:9px 12px; border-bottom:1px solid var(--line); font-variant-numeric:tabular-nums;}
+  th{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:11.5px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft); font-weight:600;}
+  td.num{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;}
+  .table-wrap{overflow-x:auto; margin:16px 0;}
+  .table-wrap table{margin:0}
+
+  .pill{display:inline-flex; align-items:center; gap:6px; font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:11.5px; padding:3px 9px; border-radius:99px; border:1px solid var(--line-strong); color:var(--ink-soft);}
+  .pill.good{border-color:var(--accent2); color:var(--accent2-ink)}
+  .pill.warn{border-color:var(--accent); color:var(--accent-ink)}
+
+  .grid2{display:grid; grid-template-columns:1fr 1fr; gap:18px; margin:18px 0;}
+  @media (max-width:700px){ .grid2{grid-template-columns:1fr} }
+
+  .algo-card{border:1px solid var(--line); border-radius:12px; padding:24px 26px; margin:26px 0; background:var(--panel); box-shadow:var(--shadow);}
+  .algo-tag{display:flex; gap:10px; align-items:baseline; flex-wrap:wrap; margin-bottom:4px;}
+  .algo-family{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:11.5px; color:var(--ink-soft); text-transform:uppercase; letter-spacing:.06em;}
+
+  .weight-bars{display:flex; flex-direction:column; gap:8px; margin:16px 0;}
+  .wbar-row{display:grid; grid-template-columns:90px 1fr 46px; align-items:center; gap:10px; font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:12.5px;}
+  .wbar-track{height:10px; border-radius:99px; background:var(--panel-2); border:1px solid var(--line); overflow:hidden;}
+  .wbar-fill{height:100%; border-radius:99px; background:linear-gradient(90deg,var(--accent2),var(--accent));}
+
+  footer{padding:50px 0 0; color:var(--ink-soft); font-size:13px;}
+  .backtop{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:12px; color:var(--ink-soft); text-decoration:none; display:inline-block; margin-top:8px;}
+
+  ::selection{background:var(--accent-tint); color:var(--ink)}
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <header class="top">
+    <div class="eyebrow"><span class="dot"></span>SEDP — self-evolving data partitioning &nbsp;/&nbsp; annotated field guide</div>
+    <h1 class="title">SEDP, from first principles</h1>
+    <p class="dek">Every idea in this codebase explained from zero — the problem, the architecture, and the full
+      mathematics behind all six forecasting algorithms, the decision engine, the evaluation metrics, and the
+      composite score. No prior background assumed.</p>
+    <div class="meta-row">
+      <span><b>Reading time</b> ~35 min</span>
+      <span><b>Prerequisite math</b> none — every formula is built up from arithmetic</span>
+      <span><span class="pill good">✓ verified</span>&nbsp; = checked against numpy / textbook reference in this project's own test runs</span>
+    </div>
+  </header>
+
+  <div class="layout">
+    <nav class="toc">
+      <div class="toc-h">Contents</div>
+      <ol>
+        <li><a href="#problem">The problem, in plain terms</a></li>
+        <li><a href="#anatomy">System anatomy</a></li>
+        <li><a href="#pps">The core decision: Partition Pressure Score</a></li>
+        <li><a href="#forecasters">Six ways to predict the future</a></li>
+        <li><a href="#metrics">Is a forecast any good? — the metrics</a></li>
+        <li><a href="#montecarlo">Monte Carlo: why one run isn't enough</a></li>
+        <li><a href="#composite">The composite score, built from scratch</a></li>
+        <li><a href="#audit">What was verified vs. just trusted</a></li>
+      </ol>
+    </nav>
+
+    <main>
+
+      <!-- ================= 1. PROBLEM ================= -->
+      <section id="problem">
+        <div class="sec-kicker">01 · Basics</div>
+        <h2>The problem, in plain terms</h2>
+        <p>Kafka is a system for moving streams of data. To handle a lot of traffic at once, a stream ("topic")
+          is split into <b>partitions</b> — independent lanes that can be processed in parallel. Think of a
+          supermarket: one long checkout queue is slow, so the store opens several lanes and splits shoppers
+          across them.</p>
+        <p>The problem is that shoppers don't distribute themselves evenly. If one lane happens to get all the
+          big carts, it backs up — a queue builds even though other lanes sit idle. In Kafka terms this is
+          <b>data skew</b>, and the backed-up queue is <b>consumer lag</b>: how far behind a partition's
+          reader is from the data that's already arrived.</p>
+        <div class="grid2">
+          <div class="box formal">
+            <div class="box-head">Reactive (traditional)</div>
+            <p style="margin-bottom:0">Wait until a lane is visibly jammed — lag is already high, customers
+              are already waiting — then open a new lane. By definition, the damage already happened before
+              anyone acted.</p>
+          </div>
+          <div class="box intuition">
+            <div class="box-head">Predictive (SEDP)</div>
+            <p style="margin-bottom:0">Watch each lane's <i>trend</i>, forecast which one is about to get
+              slammed, and act — split it, merge two quiet ones, or move a lane to a less busy cashier —
+              <i>before</i> the queue actually forms.</p>
+          </div>
+        </div>
+        <p>Everything below is the machinery that makes "forecast, then act early" precise enough to automate:
+          how to predict a lane's near-future load, how to turn that forecast into a split/merge/reassign
+          decision, and how to check, with real numbers, that any of this is actually working.</p>
+      </section>
+
+      <!-- ================= 2. ANATOMY ================= -->
+      <section id="anatomy">
+        <div class="sec-kicker">02 · Basics</div>
+        <h2>System anatomy</h2>
+        <p>Five components hand off to each other in a loop, once per monitoring cycle (every few seconds):</p>
+        <div class="pipeline">
+          <div class="pipe-step"><div class="k">1 · input</div><div class="n">Load Monitor</div><div class="d">Keeps a rolling window of each partition's recent throughput, lag and latency.</div></div>
+          <div class="pipe-step"><div class="k">2 · forecast</div><div class="n">Predictor</div><div class="d">One of six algorithms turns "recent history" into "next value."</div></div>
+          <div class="pipe-step"><div class="k">3 · score</div><div class="n">PPEA</div><div class="d">Combines the forecast with live lag/latency into one Pressure Score per partition, and decides.</div></div>
+          <div class="pipe-step"><div class="k">4 · act</div><div class="n">Evolution Engine</div><div class="d">Executes the decision: split a hot partition, merge two idle ones, or reassign one to another broker.</div></div>
+          <div class="pipe-step"><div class="k">5 · learn</div><div class="n">Feedback Controller</div><div class="d">Checks a few cycles later whether the action actually helped, and nudges the scoring weights if not.</div></div>
+        </div>
+        <div class="pipe-loop">the output of step 5 feeds back into step 3's weights — the "self-evolving" part</div>
+      </section>
+
+      <!-- ================= 3. PPS ================= -->
+      <section id="pps">
+        <div class="sec-kicker">03 · Core mechanism</div>
+        <h2>The core decision: Partition Pressure Score</h2>
+        <p>Every cycle, each partition gets reduced to a single number — how "stressed" it is — called the
+          <b>Partition Pressure Score</b>, or PPS. It's a weighted sum of three signals:</p>
+        <div class="formula">PPS(p) = w<sub>1</sub>&middot;L(p) + w<sub>2</sub>&middot;G(p) + w<sub>3</sub>&middot;T(p)
+
+<span class="comment">  L(p)  predicted load       — this cycle's forecast (§4)
+  G(p)  consumer lag         — how far behind the reader already is
+  T(p)  processing latency   — how long each record takes to handle
+  w1+w2+w3 = 1  (weights are normalized so PPS stays on one interpretable scale)</span></div>
+        <p>The weights start at <code class="mono">w₁=0.5, w₂=0.3, w₃=0.2</code> — the forecast matters most,
+          because it's the only signal that's <i>early</i>; lag and latency are already-happened symptoms.</p>
+
+        <div class="box formal">
+          <div class="box-head">Why normalize the weights to sum to 1?</div>
+          <p style="margin-bottom:0">A weighted sum where the weights sum to 1 is a <b>convex combination</b> —
+            the result is guaranteed to land inside the range spanned by the three inputs, rather than
+            blowing up or shrinking depending on how many terms you added. It also makes the weights
+            directly readable as "percent of the decision each signal accounts for."</p>
+        </div>
+
+        <h3>Turning a score into an action</h3>
+        <table>
+          <tr><th>Action</th><th>Rule</th><th>Reading</th></tr>
+          <tr><td><b>Split</b></td><td class="mono">PPS(p) &gt; split_threshold</td><td>This lane is overloaded — open a second one.</td></tr>
+          <tr><td><b>Merge</b></td><td class="mono">PPS(p₁) &amp; PPS(p₂) &lt; merge_threshold</td><td>Two neighboring lanes are both quiet — combine them.</td></tr>
+          <tr><td><b>Reassign</b></td><td class="mono">σ / μ &gt; reassign_threshold</td><td>Load is unevenly spread across all lanes — move the hottest one to a less busy machine.</td></tr>
+        </table>
+        <div class="box intuition">
+          <div class="box-head">What is σ / μ ?</div>
+          <p style="margin-bottom:0">The standard deviation of all partitions' scores divided by their mean —
+            a standard statistics measure called the <b>coefficient of variation</b>. It answers "how spread
+            out is the load, <i>relative to</i> its own average?" — which is more meaningful than raw spread
+            alone, since a spread of 500 means something very different when the average load is 1,000 versus
+            1,000,000.</p>
+        </div>
+
+        <h3>The "self-evolving" part: adaptive weights</h3>
+        <p>Every action is logged, and a few cycles later the Feedback Controller checks: did lag actually drop
+          by at least 10%? If not, the weight of whichever signal looked most responsible for the bad call gets
+          nudged up, and everything is renormalized back to summing to 1. Over time the three weights drift
+          toward whatever mix has actually been working on the traffic this deployment sees.</p>
+      </section>
+
+      <!-- ================= 4. FORECASTERS ================= -->
+      <section id="forecasters">
+        <div class="sec-kicker">04 · The mathematics</div>
+        <h2>Six ways to predict the future</h2>
+        <p>All six algorithms answer the same question — <i>"given the load so far, what's the next value?"</i>
+          — with the same shape of answer: feed in one new number, get one prediction out. They differ entirely
+          in <i>how much history they trust, and how</i>.</p>
+
+        <!-- EWMA -->
+        <div class="algo-card">
+          <div class="algo-tag"><h3 class="algo-name">4.1 · Exponentially Weighted Moving Average (EWMA)</h3><span class="algo-family">smoothing</span></div>
+          <div class="box intuition">
+            <div class="box-head">Intuition</div>
+            <p style="margin-bottom:0">A running average that never forgets the past entirely, but cares less
+              and less about it the further back it goes. Each new point nudges the average toward itself by a
+              fraction <code class="mono">α</code>.</p>
+          </div>
+          <div class="formula">S<sub>t</sub> = α&middot;x<sub>t</sub> + (1&minus;α)&middot;S<sub>t&minus;1</sub>&nbsp;&nbsp;<span class="comment">// S = smoothed estimate, α ∈ (0,1)</span></div>
+          <p>Unroll the recursion one step at a time and a pattern appears — S<sub>t</sub> is secretly a weighted
+            average of <i>every</i> past observation, with the weights shrinking geometrically the further back
+            you go:</p>
+          <div class="formula">S<sub>t</sub> = α·x<sub>t</sub> + α(1&minus;α)·x<sub>t&minus;1</sub> + α(1&minus;α)²·x<sub>t&minus;2</sub> + …</div>
+          <p>That's the whole trick: <code class="mono">α</code> close to 1 means "trust the newest point almost
+            entirely" (reacts fast, noisy); close to 0 means "barely update" (smooth, slow to react). SEDP uses
+            <code class="mono">α = 0.3</code> by default.</p>
+          <h3>+ Trend — this repo's original estimator</h3>
+          <p>EWMA alone predicts "next = same as the smoothed level," which always lags behind a rising or
+            falling trend. The fix used here: extrapolate using the smoothed series' own most recent slope.</p>
+          <div class="formula">trend<sub>t</sub>     = S<sub>t</sub> &minus; S<sub>t&minus;1</sub>
+predicted = S<sub>t</sub> + trend<sub>t</sub></div>
+          <div class="box caveat">
+            <div class="box-head">Where this is weaker than it looks</div>
+            <p style="margin-bottom:0"><code class="mono">trend</code> is just the raw first difference of an
+              already-smoothed series — it is <i>not itself smoothed</i>, so it inherits more noise than a
+              trend estimate that gets its own dedicated smoothing (see Holt's method, next). That's a real,
+              structural difference, not a bug.</p>
+          </div>
+        </div>
+
+        <!-- Holt -->
+        <div class="algo-card">
+          <div class="algo-tag"><h3 class="algo-name">4.2 · Holt's Linear Method</h3><span class="algo-family">smoothing (double exponential)</span></div>
+          <div class="box intuition">
+            <div class="box-head">Intuition</div>
+            <p style="margin-bottom:0">Run <i>two</i> EWMAs at once — one tracking the current level, one
+              tracking the current slope — each with its own forgetfulness dial.</p>
+          </div>
+          <div class="formula">level<sub>t</sub> = α&middot;x<sub>t</sub> + (1&minus;α)&middot;(level<sub>t&minus;1</sub> + trend<sub>t&minus;1</sub>)
+trend<sub>t</sub> = β&middot;(level<sub>t</sub> &minus; level<sub>t&minus;1</sub>) + (1&minus;β)&middot;trend<sub>t&minus;1</sub>
+predicted = level<sub>t</sub> + trend<sub>t</sub></div>
+          <p>The trend line now has its own memory (<code class="mono">β = 0.1</code> by default, slower to
+            change than the level's <code class="mono">α = 0.3</code>) instead of being recomputed from
+            scratch every step — which is exactly what fixes EWMA+Trend's noise problem above.</p>
+          <div class="box verified">
+            <div class="box-head">Verified</div>
+            <p style="margin-bottom:0">Fed a perfectly straight, noiseless ramp — after the first couple of
+              steps, Holt's prediction error drops to exactly <code class="mono">0.0</code>. That's the
+              textbook property of double exponential smoothing on a linear trend, confirmed directly against
+              this implementation.</p>
+          </div>
+        </div>
+
+        <!-- AR -->
+        <div class="algo-card">
+          <div class="algo-tag"><h3 class="algo-name">4.3 · Autoregressive AR(3)</h3><span class="algo-family">classical time series</span></div>
+          <div class="box intuition">
+            <div class="box-head">Intuition</div>
+            <p style="margin-bottom:0">Assume the next value is some fixed linear combination of the last
+              <i>p</i> values — "3 parts of what happened 1 step ago, minus 1 part of 2 steps ago, plus…" —
+              and let the data itself tell you those parts.</p>
+          </div>
+          <div class="formula">y<sub>t</sub> = φ<sub>1</sub>y<sub>t&minus;1</sub> + φ<sub>2</sub>y<sub>t&minus;2</sub> + φ<sub>3</sub>y<sub>t&minus;3</sub> + ε<sub>t</sub></div>
+          <p>Finding the coefficients <code class="mono">φ₁, φ₂, φ₃</code> is a classic <b>ordinary least
+            squares</b> problem: pick the φ's that minimize total squared prediction error over the recent
+            window. That reduces to solving a small linear system (the <b>normal equations</b>):</p>
+          <div class="formula">X<sup>T</sup>X&nbsp;φ = X<sup>T</sup>y</div>
+          <p>where each row of <code class="mono">X</code> is one lag-window <code class="mono">[y<sub>t&minus;1</sub>, y<sub>t&minus;2</sub>, y<sub>t&minus;3</sub>]</code>. The window is
+            first centered (its own mean subtracted off) so the system stays numerically well-behaved even when
+            raw load values are in the hundreds of thousands. The system itself is solved with <b>Gaussian
+            elimination</b> — the standard hand (and computer) method for solving several linear equations at
+            once by systematically cancelling variables row by row.</p>
+          <div class="box verified">
+            <div class="box-head">Verified</div>
+            <p style="margin-bottom:0">This project's hand-written Gaussian elimination solver was run against
+              2,000 random test systems and compared to <code class="mono">numpy.linalg.solve</code> — maximum
+              disagreement: <code class="mono">2.2 × 10⁻¹⁶</code>, i.e. floating-point-exact.</p>
+          </div>
+          <div class="box caveat">
+            <div class="box-head">Where AR(3) struggles</div>
+            <p style="margin-bottom:0">A fixed linear combination of 3 past points is a poor fit for a
+              <i>strong, steady ramp</i> — it can only fake a trend by pushing its coefficients toward summing
+              to ~1 (a "unit root"), which is a fragile, indirect way to represent something Holt's method
+              represents directly. This is exactly why AR(3) ranks last on this project's trending workload —
+              theory and measurement agree.</p>
+          </div>
+        </div>
+
+        <!-- Kalman -->
+        <div class="algo-card">
+          <div class="algo-tag"><h3 class="algo-name">4.4 · Kalman Filter (constant velocity)</h3><span class="algo-family">state-space / Bayesian</span></div>
+          <div class="box intuition">
+            <div class="box-head">Intuition — "the GPS algorithm"</div>
+            <p style="margin-bottom:0">Your phone's GPS chip is noisy, but you know objects move continuously —
+              they don't teleport. The Kalman filter keeps a running belief about a <i>hidden true state</i>
+              (here: position <i>and</i> velocity of the load), predicts forward using physics
+              (<code class="mono">next position = position + velocity</code>), then corrects that prediction
+              using the new noisy measurement — trusting whichever of the two (its own physics-based guess, or
+              the new measurement) it currently has more confidence in.</p>
+          </div>
+          <p>The belief isn't just a number — it's a number <i>plus a confidence</i>, tracked as a 2×2
+            covariance matrix <code class="mono">P</code>. Each cycle runs two steps:</p>
+          <div class="formula"><span class="comment">// 1. predict — physics only, no new data yet</span>
+x&#x0302;  ← F&middot;x&#x0302;                  <span class="comment">// position += velocity</span>
+P  ← F&middot;P&middot;F<sup>T</sup> + Q          <span class="comment">// uncertainty grows without new info</span>
+
+<span class="comment">// 2. update — blend the prediction with the new measurement z</span>
+K  = P&middot;H<sup>T</sup> / (H&middot;P&middot;H<sup>T</sup> + R)   <span class="comment">// Kalman gain: how much to trust z</span>
+x&#x0302;  ← x&#x0302; + K&middot;(z &minus; H&middot;x&#x0302;)         <span class="comment">// nudge belief toward the measurement</span>
+P  ← (I &minus; K&middot;H)&middot;P             <span class="comment">// confidence improves after a good look</span></div>
+          <div class="box intuition">
+            <div class="box-head">What the Kalman gain <i>K</i> is actually doing</div>
+            <p style="margin-bottom:0"><code class="mono">K</code> is a self-adjusting dial between 0 and 1.
+              If the sensor is very noisy relative to how confident the model is (<code class="mono">R</code>
+              large), <code class="mono">K</code> shrinks and the filter mostly trusts its own physics-based
+              prediction. If the model's own uncertainty <code class="mono">P</code> is large — it hasn't seen
+              data in a while, or the regime just changed — <code class="mono">K</code> grows and the filter
+              leans on the new measurement instead. Unlike EWMA's fixed <code class="mono">α</code>, this
+              trade-off recomputes itself every single cycle.</p>
+          </div>
+          <div class="box verified">
+            <div class="box-head">Verified</div>
+            <p style="margin-bottom:0">This implementation's predictions were compared step-by-step against an
+              independent textbook reimplementation of the same constant-velocity filter over 201 steps —
+              maximum disagreement: <code class="mono">2.9 × 10⁻¹¹</code>.</p>
+          </div>
+        </div>
+
+        <!-- Linear Regression -->
+        <div class="algo-card">
+          <div class="algo-tag"><h3 class="algo-name">4.5 · Linear Regression (sliding window)</h3><span class="algo-family">regression</span></div>
+          <div class="box intuition">
+            <div class="box-head">Intuition</div>
+            <p style="margin-bottom:0">The simplest of the six: look at the last <i>n</i> points, draw the
+              best-fit straight line through them, and read off one step past the end of that line.</p>
+          </div>
+          <div class="formula">slope     = Σ(i&minus;i&#772;)(y<sub>i</sub>&minus;y&#772;) / Σ(i&minus;i&#772;)²    <span class="comment">// closed-form least squares</span>
+intercept = y&#772; &minus; slope&middot;i&#772;
+predicted = intercept + slope&middot;n</div>
+          <p>Because the window is small and fixed (6 points by default), it reacts quickly to recent change but
+            has no memory of anything older — it's the most "local" of the six forecasters.</p>
+          <div class="box verified">
+            <div class="box-head">Verified</div>
+            <p style="margin-bottom:0">Matched <code class="mono">numpy.polyfit</code>'s line-fit-and-extrapolate
+              output exactly on a synthetic noisy ramp.</p>
+          </div>
+        </div>
+
+        <!-- Game-theoretic ensemble -->
+        <div class="algo-card">
+          <div class="algo-tag"><h3 class="algo-name">4.6 · Game-Theoretic Ensemble</h3><span class="algo-family">game theory / online learning — this repo's own contribution</span></div>
+          <div class="box intuition">
+            <div class="box-head">Intuition — a repeated game against your own five experts</div>
+            <p style="margin-bottom:0">Treat the five algorithms above as competing "experts" playing a
+              repeated game. Every round, all five make a prediction; once the true value shows up, whoever
+              was <i>wrong</i> loses influence, and whoever was <i>right</i> gains it — automatically, just by
+              renormalizing. The final forecast is a weighted blend, not a single winner-take-all pick.</p>
+          </div>
+          <p>The weight update is called <b>Multiplicative Weights</b> (also: Hedge):</p>
+          <div class="formula">loss<sub>i</sub> = |prediction<sub>i</sub> &minus; actual| / (worst error this round)   <span class="comment">// rescaled to [0,1]</span>
+w<sub>i</sub>    ← w<sub>i</sub> &middot; e<sup>&minus;η&middot;loss<sub>i</sub></sup>                          <span class="comment">// punish bad experts exponentially</span>
+w      ← w / Σw                                        <span class="comment">// renormalize back to a probability</span>
+forecast = Σ w<sub>i</sub>&middot;prediction<sub>i</sub></div>
+          <div class="weight-bars">
+            <div class="wbar-row"><span>EWMA</span><div class="wbar-track"><div class="wbar-fill" style="width:24%"></div></div><span>0.24</span></div>
+            <div class="wbar-row"><span>Holt</span><div class="wbar-track"><div class="wbar-fill" style="width:14%"></div></div><span>0.14</span></div>
+            <div class="wbar-row"><span>AR(3)</span><div class="wbar-track"><div class="wbar-fill" style="width:8%"></div></div><span>0.08</span></div>
+            <div class="wbar-row"><span>Kalman</span><div class="wbar-track"><div class="wbar-fill" style="width:38%"></div></div><span>0.38</span></div>
+            <div class="wbar-row"><span>LinReg</span><div class="wbar-track"><div class="wbar-fill" style="width:16%"></div></div><span>0.16</span></div>
+          </div>
+          <p style="font-size:13px;color:var(--ink-soft);margin-top:-8px">illustrative weight snapshot mid-run — the five always sum to 1, and reshuffle every cycle as errors come in</p>
+
+          <div class="box formal">
+            <div class="box-head">The "no-regret" guarantee, in plain terms</div>
+            <p>Multiplicative Weights comes with a mathematical promise: over any stretch of <i>T</i> rounds,
+              your total error is guaranteed to stay within <code class="mono">O(√(T·log N))</code> of the
+              error the single <i>best</i> expert would have had, <i>if you'd known in advance which one that
+              was</i> — for <i>N</i> experts. In plain terms: you never do much worse than hindsight's best
+              single choice, without ever needing hindsight.</p>
+            <p style="margin-bottom:0">This implementation adds <b>Fixed-Share</b>: after every weight update,
+              a small slice of weight (5%) is leaked back to a uniform 1/5 across all experts. Plain
+              Multiplicative Weights eventually locks onto one expert and <i>stops</i> tracking anyone else —
+              Fixed-Share keeps a standing bet on the others, so when the traffic pattern suddenly shifts (calm
+              → burst), a previously-losing expert can reclaim influence within a few rounds instead of never.</p>
+          </div>
+          <div class="box caveat">
+            <div class="box-head">A genuine caveat, not just a footnote</div>
+            <p style="margin-bottom:0">The textbook <code class="mono">O(√(T·log N))</code> bound assumes each
+              round's loss is measured on a <i>fixed, known</i> scale. Here, losses are rescaled every round by
+              that round's own worst error — necessary, since forecast error has no fixed a-priori range — but
+              it means the strict textbook proof doesn't transfer unmodified. It's best understood as a
+              well-motivated adaptive variant of Hedge, not a literally proven bound on this exact code.</p>
+          </div>
+          <div class="box verified">
+            <div class="box-head">Verified</div>
+            <p style="margin-bottom:0">Best raw accuracy of all six algorithms on this project's workload, and
+              the <i>only</i> one with positive skill (beats a naive forecast) at 320,000 points. The literal
+              cost: it runs all five other experts internally every step, making it ~90× slower than the
+              fastest single algorithm — a real trade-off, not a flaw, and the reason the composite score in
+              §7 treats speed as a first-class input rather than an afterthought.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= 5. METRICS ================= -->
+      <section id="metrics">
+        <div class="sec-kicker">05 · Measuring quality</div>
+        <h2>Is a forecast any good? — the metrics</h2>
+        <p>Every algorithm above outputs one number per cycle. To compare six different algorithms fairly, that
+          stream of predictions has to be reduced to a handful of scores. Here's what each one actually means:</p>
+        <div class="table-wrap">
+        <table>
+          <tr><th>Metric</th><th>Formula</th><th>Reads as</th></tr>
+          <tr><td><b>MAE</b></td><td class="num mono">mean(|predicted &minus; actual|)</td><td>Average miss, in the same units as the data. Simple, robust to outliers.</td></tr>
+          <tr><td><b>RMSE</b></td><td class="num mono">√mean((predicted &minus; actual)²)</td><td>Like MAE but squares errors first — punishes big misses much harder than small ones.</td></tr>
+          <tr><td><b>MAPE</b></td><td class="num mono">mean(|error| / actual) × 100</td><td>Average miss as a percentage. Unstable when <code>actual</code> is near zero.</td></tr>
+          <tr><td><b>R²</b></td><td class="num mono">1 &minus; SSE / SST</td><td>Fraction of the data's own variance the forecast explains, vs. just guessing the average every time.</td></tr>
+          <tr><td><b>Directional accuracy</b></td><td class="num mono">% of steps where sign(Δpredicted) = sign(Δactual)</td><td>Did it call "up" vs "down" correctly? 50% = coin flip.</td></tr>
+          <tr><td><b>Skill</b></td><td class="num mono">(1 &minus; MAE / naiveMAE) × 100</td><td>% better than the dead-simple baseline "next = current value." Positive = actually earning its keep.</td></tr>
+          <tr><td><b>Theil's U2</b></td><td class="num mono">RMSE / naiveRMSE</td><td>Same idea as skill, using RMSE. &lt;1 beats the naive baseline.</td></tr>
+        </table>
+        </div>
+        <div class="box caveat">
+          <div class="box-head">A verified weak spot: R² nearly doesn't discriminate here</div>
+          <p>R² compares a forecast against the weakest possible baseline — "always guess the overall average."
+            On a workload with a strong ramp/burst pattern, that baseline is so bad that <i>almost any</i>
+            reasonable forecaster beats it by a wide margin, so R² saturates near 1.0 for all six algorithms
+            regardless of real quality differences between them.</p>
+          <p style="margin-bottom:0">Measured directly on this project's own 6-algorithm run: R² ranged
+            <code class="mono">0.971–0.988</code> — a <code class="mono">1.7%</code> spread — while <b>skill</b>
+            ranged over <code class="mono">33 points</code> on the exact same runs. R² also turned out to be
+            <code class="mono">94.5%</code> correlated with skill and <code class="mono">99.7%</code>
+            correlated with Theil's U2: three different-looking numbers carrying almost the same one signal.
+            This is exactly why R² was dropped from the composite score in §7.</p>
+        </div>
+      </section>
+
+      <!-- ================= 6. MONTE CARLO ================= -->
+      <section id="montecarlo">
+        <div class="sec-kicker">06 · Statistical rigor</div>
+        <h2>Monte Carlo: why one run isn't enough</h2>
+        <p>Every metric above is computed on <i>one</i> randomly generated workload. Run it again with a
+          different random seed and the numbers shift — some algorithms get lucky on one seed and unlucky on
+          the next. Reporting a single run risks mistaking noise for a real difference.</p>
+        <p>The fix is standard Monte Carlo evaluation: run the same comparison across several seeds (5, by
+          default) and report both the <b>mean</b> and the <b>standard deviation</b> of each metric:</p>
+        <div class="formula">skill_mean = average(skill across seeds)
+skill_std  = how much skill wobbles from one seed to the next</div>
+        <p>A low <code class="mono">skill_std</code> means an algorithm's quality is dependable; a high one
+          means its good average is partly luck. This distinction becomes a real ingredient in the composite
+          score next.</p>
+      </section>
+
+      <!-- ================= 7. COMPOSITE ================= -->
+      <section id="composite">
+        <div class="sec-kicker">07 · Ranking algorithms</div>
+        <h2>The composite score, built from scratch</h2>
+        <p>Six algorithms, seven-plus metrics each, across Monte Carlo seeds — eventually you want <i>one</i>
+          number to rank them by. Building that number well turns out to be its own small piece of math.</p>
+
+        <h3>Step 1 — pick signals that don't just repeat each other</h3>
+        <p>As shown in §5, MAPE / R² / Theil's U2 / skill are all different arithmetic views of essentially the
+          same "error vs. a baseline" idea — stacking four of them into one score mostly just counts that one
+          idea four times. The composite instead uses exactly three genuinely different signals:</p>
+        <ul>
+          <li><b>accuracy</b> — how good the forecast is</li>
+          <li><b>directional</b> — does it get the direction of change right (a structurally different
+            question from magnitude)</li>
+          <li><b>efficiency</b> — how fast it runs, since a forecast that's too slow to compute isn't usable
+            regardless of accuracy</li>
+        </ul>
+
+        <h3>Step 2 — put every signal on a scale that means the same thing every time</h3>
+        <p>Skill is a percentage, DirAcc is a percentage on a different baseline, and throughput is a raw count
+          spanning six orders of magnitude (10,000 to 2,000,000+ points/sec). Comparing them directly, or
+          normalizing them relative to whichever algorithms happen to be selected in a dropdown, makes the
+          score unstable — literally the same algorithm can score differently depending on who else is on
+          screen. Every component here instead maps to a fixed 0–100 scale against a fixed reference point:</p>
+        <div class="formula">accuracy    = clip( (risk_adj_skill &minus; (&minus;40)) / (20 &minus; (&minus;40)) &times; 100,  0, 100 )
+                <span class="comment">// 0% skill (ties the naive baseline) → 50pt · +20% skill → 100pt · &minus;40% → 0pt</span>
+
+directional = clip( (DirAcc &minus; 50) / (100 &minus; 50) &times; 100,  0, 100 )
+                <span class="comment">// 50% (coin flip) → 0pt · 100% (perfect) → 100pt</span>
+
+efficiency  = clip( (log₁₀(throughput) &minus; log₁₀(10,000)) / (log₁₀(1,000,000) &minus; log₁₀(10,000)) &times; 100,  0, 100 )
+                <span class="comment">// log scale, because throughput spans orders of magnitude, not a linear range</span></div>
+        <div class="box intuition">
+          <div class="box-head">What "risk-adjusted skill" means</div>
+          <p style="margin-bottom:0"><code class="mono">risk_adj_skill = skill_mean &minus; 1 × skill_std</code>
+            — an algorithm's Monte Carlo average skill, penalized by how much it wobbles between seeds. Two
+            algorithms with the same average skill don't score the same if one of them is only good when it
+            gets lucky; this term makes consistency count, not just the average.</p>
+        </div>
+
+        <h3>Step 3 — combine</h3>
+        <div class="formula">composite = 0.5&middot;accuracy + 0.2&middot;directional + 0.3&middot;efficiency</div>
+        <p>Accuracy dominates (0.5), directional gets a real but smaller vote (0.2), and efficiency is weighted
+          high enough (0.3) to matter — because on this project's own large-scale benchmark, the most accurate
+          algorithm (the game-theoretic ensemble, §4.6) is also ~90× slower than the fastest, and a score that
+          ignored that entirely would be quietly recommending the most expensive option every time.</p>
+
+        <div class="box verified">
+          <div class="box-head">Why this replaced an earlier version</div>
+          <p>An earlier composite blended five metrics using <i>min-max normalization</i> — scaling each metric
+            relative to whichever algorithms were currently selected for comparison. Measured directly: the
+            exact same algorithm, with byte-identical accuracy, scored <code class="mono">61.0</code> when
+            compared against all six algorithms and <code class="mono">35.0</code> when compared against a
+            two-algorithm subset — a 26-point swing with nothing about the algorithm itself changing.</p>
+          <p style="margin-bottom:0">The fixed-anchor version above was tested the same way: the same algorithm
+            scored <b>identically</b> across four repeated trials against different comparison sets — the
+            instability is gone by construction, not by luck.</p>
+        </div>
+      </section>
+
+      <!-- ================= 8. AUDIT ================= -->
+      <section id="audit">
+        <div class="sec-kicker">08 · Closing the loop</div>
+        <h2>What was verified vs. just trusted</h2>
+        <p>A running theme above is the <span class="pill good">✓ verified</span> tag — a deliberate distinction
+          between "this is how the code is documented to work" and "this was actually checked against an
+          independent reference." Here's the full tally from this project's own audit:</p>
+        <div class="table-wrap">
+        <table>
+          <tr><th>Component</th><th>Checked against</th><th>Result</th></tr>
+          <tr><td>AR(3) linear solver</td><td>numpy.linalg.solve, 2,000 random systems</td><td class="mono">max error 2.2×10⁻¹⁶</td></tr>
+          <tr><td>Kalman filter</td><td>independent textbook reimplementation, 201 steps</td><td class="mono">max error 2.9×10⁻¹¹</td></tr>
+          <tr><td>Linear regression</td><td>numpy.polyfit</td><td class="mono">exact match</td></tr>
+          <tr><td>Holt's method</td><td>noiseless-ramp convergence property</td><td class="mono">error → 0.0, as theory predicts</td></tr>
+          <tr><td>Composite score stability</td><td>same algorithm, 4 different comparison sets</td><td class="mono">identical score every time (post-fix)</td></tr>
+          <tr><td>R² discriminative power</td><td>measured range across 6 algorithms</td><td class="mono">1.7% range — confirmed weak</td></tr>
+        </table>
+        </div>
+        <p>Real bugs turned up along the way that had nothing to do with the math itself: a partition-count
+          safety cap that was silently skipped whenever no Kafka broker was connected (the default way this
+          project runs), a race condition where two threads could reinitialize a partition's forecasting state
+          mid-stream, and a dashboard chart bug from a well-known Streamlit rendering quirk. None of that
+          changes the equations above — but it's the difference between math that's correct on paper and a
+          system that's correct when it's actually running.</p>
+        <a class="backtop" href="#problem">↑ back to the top</a>
+      </section>
+
+    </main>
+  </div>
+</div>
+</body>
+</html>

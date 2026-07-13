@@ -7,6 +7,10 @@ This repo contains the predictive engine (PPEA), **six** interchangeable forecas
 algorithms (including our own **game-theoretic no-regret ensemble**), a FastAPI service,
 two Streamlit dashboards, a stress-test harness, and a **300k+ point large-scale benchmark**.
 
+> New to the project? [`docs/sedp-explainer.html`](docs/sedp-explainer.html) walks through every idea here
+> from zero — the problem, the architecture, and the full math behind all six algorithms, the evaluation
+> metrics, and the composite score. Open it in a browser (no server needed).
+
 ---
 
 ## 1. The idea in plain English
