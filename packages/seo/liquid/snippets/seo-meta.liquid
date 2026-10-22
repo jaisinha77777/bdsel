@@ -1,0 +1,111 @@
+{%- comment -%}
+  seo-meta.liquid — Valam Store Toolkit
+  Renders <title>, meta description, canonical, Open Graph, Twitter Card tags and,
+  on the homepage, Organization + WebSite JSON-LD. Everything is derived from the
+  store's own Liquid objects (shop, page_title, page_description, page_image,
+  canonical_url, product, collection) so the snippet is identical across stores and
+  never carries another brand's copy.
+
+  Usage (in layout/theme.liquid, inside <head>, replacing the theme's own title/meta):
+    {%- render 'seo-meta' -%}
+{%- endcomment -%}
+
+{%- liquid
+  assign seo_title = page_title | default: shop.name
+  if current_tags
+    assign seo_tags = current_tags | join: ', '
+    assign seo_title = seo_title | append: ' – tagged "' | append: seo_tags | append: '"'
+  endif
+  if current_page != 1
+    assign seo_title = seo_title | append: ' – Page ' | append: current_page
+  endif
+  unless seo_title contains shop.name
+    assign seo_title = seo_title | append: ' | ' | append: shop.name
+  endunless
+
+  assign seo_description = page_description | default: shop.description | strip_html | strip_newlines | strip | truncate: 160
+
+  assign og_type = 'website'
+  if request.page_type == 'product'
+    assign og_type = 'product'
+  elsif request.page_type == 'article'
+    assign og_type = 'article'
+  endif
+
+  assign og_image = page_image
+  if og_image == blank and shop.brand.logo
+    assign og_image = shop.brand.logo
+  endif
+-%}
+
+<title>{{ seo_title | strip | escape }}</title>
+{%- if seo_description != blank %}
+<meta name="description" content="{{ seo_description | escape }}">
+{%- endif %}
+<link rel="canonical" href="{{ canonical_url }}">
+
+<meta property="og:site_name" content="{{ shop.name | escape }}">
+<meta property="og:url" content="{{ canonical_url }}">
+<meta property="og:title" content="{{ seo_title | strip | escape }}">
+<meta property="og:type" content="{{ og_type }}">
+<meta property="og:description" content="{{ seo_description | default: shop.name | escape }}">
+<meta property="og:locale" content="{{ request.locale.iso_code | replace: '-', '_' | default: 'en_IN' }}">
+{%- if og_image %}
+<meta property="og:image" content="https:{{ og_image | image_url: width: 1200 }}">
+<meta property="og:image:secure_url" content="https:{{ og_image | image_url: width: 1200 }}">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="{{ 1200 | divided_by: og_image.aspect_ratio | round }}">
+<meta property="og:image:alt" content="{{ og_image.alt | default: seo_title | strip | escape }}">
+{%- endif %}
+{%- if request.page_type == 'product' %}
+<meta property="product:price:amount" content="{{ product.price | money_without_currency | strip_html | remove: ',' }}">
+<meta property="product:price:currency" content="{{ shop.currency | default: 'INR' }}">
+{%- endif %}
+
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="{{ seo_title | strip | escape }}">
+<meta name="twitter:description" content="{{ seo_description | default: shop.name | escape }}">
+{%- if og_image %}
+<meta name="twitter:image" content="https:{{ og_image | image_url: width: 1200 }}">
+{%- endif %}
+
+{%- if request.page_type == 'index' %}
+<script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    "@id": {{ shop.url | append: '/#organization' | json }},
+    "name": {{ shop.name | json }},
+    "url": {{ shop.url | append: '/' | json }}
+    {%- if shop.brand.logo -%},
+    "logo": {{ shop.brand.logo | image_url: width: 600 | prepend: 'https:' | json }}
+    {%- endif -%}
+    {%- if shop.customer_email != blank -%},
+    "contactPoint": {
+      "@type": "ContactPoint",
+      "contactType": "customer service",
+      "email": {{ shop.customer_email | json }},
+      "areaServed": "IN"
+    }
+    {%- endif %}
+  }
+</script>
+<script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    "@id": {{ shop.url | append: '/#website' | json }},
+    "name": {{ shop.name | json }},
+    "url": {{ shop.url | append: '/' | json }},
+    "publisher": { "@id": {{ shop.url | append: '/#organization' | json }} },
+    "potentialAction": {
+      "@type": "SearchAction",
+      "target": {
+        "@type": "EntryPoint",
+        "urlTemplate": {{ shop.url | append: routes.search_url | append: '?q={search_term_string}' | json }}
+      },
+      "query-input": "required name=search_term_string"
+    }
+  }
+</script>
+{%- endif %}

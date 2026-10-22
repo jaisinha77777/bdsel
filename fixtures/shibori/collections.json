@@ -1,0 +1,44 @@
+{
+  "collections": [
+    {
+      "id": 7000000022,
+      "title": "Navratri Lehengas",
+      "handle": "navratri-lehengas",
+      "description": "Lehengas made for garba and dandiya.",
+      "published_at": "2026-09-15T10:30:00+05:30",
+      "updated_at": "2026-09-15T10:30:00+05:30",
+      "image": null,
+      "products_count": 3
+    },
+    {
+      "id": 7000000023,
+      "title": "Chaniya Choli",
+      "handle": "chaniya-choli",
+      "description": "Traditional chaniya cholis.",
+      "published_at": "2026-09-15T10:30:00+05:30",
+      "updated_at": "2026-09-15T10:30:00+05:30",
+      "image": null,
+      "products_count": 1
+    },
+    {
+      "id": 7000000024,
+      "title": "Dupattas",
+      "handle": "dupattas",
+      "description": "Dupattas and stoles.",
+      "published_at": "2026-09-15T10:30:00+05:30",
+      "updated_at": "2026-09-15T10:30:00+05:30",
+      "image": null,
+      "products_count": 1
+    },
+    {
+      "id": 7000000025,
+      "title": "New Arrivals",
+      "handle": "new-arrivals",
+      "description": "Fresh drops every week.",
+      "published_at": "2026-09-15T10:30:00+05:30",
+      "updated_at": "2026-09-15T10:30:00+05:30",
+      "image": null,
+      "products_count": 0
+    }
+  ]
+}

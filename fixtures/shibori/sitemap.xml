@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <sitemap>
+    <loc>https://shibori.in/sitemap_products_1.xml?from=1&amp;to=99999</loc>
+  </sitemap>
+  <sitemap>
+    <loc>https://shibori.in/sitemap_collections_1.xml</loc>
+  </sitemap>
+</sitemapindex>

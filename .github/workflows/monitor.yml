@@ -1,0 +1,47 @@
+# Daily uptime check for every brand domain. Posts a summary to the Slack/Discord
+# webhook stored in the MONITOR_WEBHOOK_URL repository secret and keeps the JSON
+# results as a build artifact.
+name: Uptime monitor
+
+on:
+  schedule:
+    # 03:15 UTC = 08:45 IST, before the business day starts.
+    - cron: '15 3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: uptime-monitor
+  cancel-in-progress: false
+
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Check all domains
+        run: pnpm monitor -- --strict
+        env:
+          MONITOR_WEBHOOK_URL: ${{ secrets.MONITOR_WEBHOOK_URL }}
+          TOOLKIT_CONTACT: ${{ vars.TOOLKIT_CONTACT || 'devops@example.com' }}
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: uptime-${{ github.run_id }}
+          path: reports/uptime-*.json
+          retention-days: 30

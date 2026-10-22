@@ -1,0 +1,10 @@
+{
+  "name": "@valam/config",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Typed brand configuration shared by every toolkit package.",
+  "exports": {
+    ".": "./brands.ts"
+  }
+}

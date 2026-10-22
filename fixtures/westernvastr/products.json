@@ -1,0 +1,353 @@
+{
+  "products": [
+    {
+      "id": 7000000044,
+      "title": "Linen Co-ord Set - Sage",
+      "handle": "linen-co-ord-set-sage",
+      "body_html": "<p>Linen Co-ord Set - Sage — a matching two-piece set designed for all-day comfort.</p>",
+      "published_at": "2026-09-15T10:30:00+05:30",
+      "created_at": "2026-09-15T10:30:00+05:30",
+      "updated_at": "2026-09-15T10:30:00+05:30",
+      "vendor": "Western Vastr",
+      "product_type": "Co-ord Set",
+      "tags": ["co-ord", "linen"],
+      "variants": [
+        {
+          "id": 7000000045,
+          "title": "S",
+          "option1": "S",
+          "option2": null,
+          "option3": null,
+          "sku": "WV-LINEN-CO-O-S",
+          "requires_shipping": true,
+          "taxable": true,
+          "featured_image": null,
+          "available": true,
+          "price": "2299.00",
+          "grams": 900,
+          "compare_at_price": "3999.00",
+          "position": 1,
+          "product_id": 7000000044,
+          "created_at": "2026-09-15T10:30:00+05:30",
+          "updated_at": "2026-09-15T10:30:00+05:30"
+        },
+        {
+          "id": 7000000046,
+          "title": "M",
+          "option1": "M",
+          "option2": null,
+          "option3": null,
+          "sku": "WV-LINEN-CO-O-M",
+          "requires_shipping": true,
+          "taxable": true,
+          "featured_image": null,
+          "available": true,
+          "price": "2299.00",
+          "grams": 900,
+          "compare_at_price": "3999.00",
+          "position": 2,
+          "product_id": 7000000044,
+          "created_at": "2026-09-15T10:30:00+05:30",
+          "updated_at": "2026-09-15T10:30:00+05:30"
+        },
+        {
+          "id": 7000000047,
+          "title": "L",
+          "option1": "L",
+          "option2": null,
+          "option3": null,
+          "sku": "WV-LINEN-CO-O-L",
+          "requires_shipping": true,
+          "taxable": true,
+          "featured_image": null,
+          "available": true,
+          "price": "2299.00",
+          "grams": 900,
+          "compare_at_price": "3999.00",
+          "position": 3,
+          "product_id": 7000000044,
+          "created_at": "2026-09-15T10:30:00+05:30",
+          "updated_at": "2026-09-15T10:30:00+05:30"
+        }
+      ],
+      "images": [
+        {
+          "id": 7000000048,
+          "created_at": "2026-09-15T10:30:00+05:30",
+          "position": 1,
+          "updated_at": "2026-09-15T10:30:00+05:30",
+          "product_id": 7000000044,
+          "variant_ids": [],
+          "src": "https://cdn.shopify.com/s/files/1/0000/0001/files/westernvastr-linen-sage.jpg?v=1726380000",
+          "alt": "Sage green linen co-ord set",
+          "width": 1200,
+          "height": 1600
+        }
+      ],
+      "options": [
+        {
+          "name": "Size",
+          "position": 1,
+          "values": ["S", "M", "L"]
+        }
+      ]
+    },
+    {
+      "id": 7000000049,
+      "title": "Printed Co-ord Set - Indigo",
+      "handle": "printed-co-ord-set-indigo",
+      "body_html": "<p>Printed Co-ord Set - Indigo — a matching two-piece set designed for all-day comfort.</p>",
+      "published_at": "2026-09-15T10:30:00+05:30",
+      "created_at": "2026-09-15T10:30:00+05:30",
+      "updated_at": "2026-09-15T10:30:00+05:30",
+      "vendor": "Western Vastr",
+      "product_type": "Co-ord Set",
+      "tags": ["co-ord", "printed"],
+      "variants": [
+        {
+          "id": 7000000050,
+          "title": "S",
+          "option1": "S",
+          "option2": null,
+          "option3": null,
+          "sku": "WV-PRINTED-CO-S",
+          "requires_shipping": true,
+          "taxable": true,
+          "featured_image": null,
+          "available": true,
+          "price": "1899.00",
+          "grams": 900,
+          "compare_at_price": "3299.00",
+          "position": 1,
+          "product_id": 7000000049,
+          "created_at": "2026-09-15T10:30:00+05:30",
+          "updated_at": "2026-09-15T10:30:00+05:30"
+        },
+        {
+          "id": 7000000051,
+          "title": "M",
+          "option1": "M",
+          "option2": null,
+          "option3": null,
+          "sku": "WV-PRINTED-CO-M",
+          "requires_shipping": true,
+          "taxable": true,
+          "featured_image": null,
+          "available": true,
+          "price": "1899.00",
+          "grams": 900,
+          "compare_at_price": "3299.00",
+          "position": 2,
+          "product_id": 7000000049,
+          "created_at": "2026-09-15T10:30:00+05:30",
+          "updated_at": "2026-09-15T10:30:00+05:30"
+        },
+        {
+          "id": 7000000052,
+          "title": "L",
+          "option1": "L",
+          "option2": null,
+          "option3": null,
+          "sku": "WV-PRINTED-CO-L",
+          "requires_shipping": true,
+          "taxable": true,
+          "featured_image": null,
+          "available": true,
+          "price": "1899.00",
+          "grams": 900,
+          "compare_at_price": "3299.00",
+          "position": 3,
+          "product_id": 7000000049,
+          "created_at": "2026-09-15T10:30:00+05:30",
+          "updated_at": "2026-09-15T10:30:00+05:30"
+        },
+        {
+          "id": 7000000053,
+          "title": "XL",
+          "option1": "XL",
+          "option2": null,
+          "option3": null,
+          "sku": "WV-PRINTED-CO-XL",
+          "requires_shipping": true,
+          "taxable": true,
+          "featured_image": null,
+          "available": true,
+          "price": "1899.00",
+          "grams": 900,
+          "compare_at_price": "3299.00",
+          "position": 4,
+          "product_id": 7000000049,
+          "created_at": "2026-09-15T10:30:00+05:30",
+          "updated_at": "2026-09-15T10:30:00+05:30"
+        }
+      ],
+      "images": [
+        {
+          "id": 7000000054,
+          "created_at": "2026-09-15T10:30:00+05:30",
+          "position": 1,
+          "updated_at": "2026-09-15T10:30:00+05:30",
+          "product_id": 7000000049,
+          "variant_ids": [],
+          "src": "https://cdn.shopify.com/s/files/1/0000/0001/files/westernvastr-printed-indigo.jpg?v=1726380000",
+          "alt": "Indigo printed shirt and trouser co-ord",
+          "width": 1200,
+          "height": 1600
+        }
+      ],
+      "options": [
+        {
+          "name": "Size",
+          "position": 1,
+          "values": ["S", "M", "L", "XL"]
+        }
+      ]
+    },
+    {
+      "id": 7000000055,
+      "title": "Satin Co-ord Set - Black",
+      "handle": "satin-co-ord-set-black",
+      "body_html": "<p>Satin Co-ord Set - Black — a matching two-piece set designed for all-day comfort.</p>",
+      "published_at": "2026-09-15T10:30:00+05:30",
+      "created_at": "2026-09-15T10:30:00+05:30",
+      "updated_at": "2026-09-15T10:30:00+05:30",
+      "vendor": "Western Vastr",
+      "product_type": "Co-ord Set",
+      "tags": ["co-ord", "party"],
+      "variants": [
+        {
+          "id": 7000000056,
+          "title": "M",
+          "option1": "M",
+          "option2": null,
+          "option3": null,
+          "sku": "WV-SATIN-CO-O-M",
+          "requires_shipping": true,
+          "taxable": true,
+          "featured_image": null,
+          "available": true,
+          "price": "2699.00",
+          "grams": 900,
+          "compare_at_price": "4499.00",
+          "position": 1,
+          "product_id": 7000000055,
+          "created_at": "2026-09-15T10:30:00+05:30",
+          "updated_at": "2026-09-15T10:30:00+05:30"
+        },
+        {
+          "id": 7000000057,
+          "title": "L",
+          "option1": "L",
+          "option2": null,
+          "option3": null,
+          "sku": "WV-SATIN-CO-O-L",
+          "requires_shipping": true,
+          "taxable": true,
+          "featured_image": null,
+          "available": true,
+          "price": "2699.00",
+          "grams": 900,
+          "compare_at_price": "4499.00",
+          "position": 2,
+          "product_id": 7000000055,
+          "created_at": "2026-09-15T10:30:00+05:30",
+          "updated_at": "2026-09-15T10:30:00+05:30"
+        }
+      ],
+      "images": [
+        {
+          "id": 7000000058,
+          "created_at": "2026-09-15T10:30:00+05:30",
+          "position": 1,
+          "updated_at": "2026-09-15T10:30:00+05:30",
+          "product_id": 7000000055,
+          "variant_ids": [],
+          "src": "https://cdn.shopify.com/s/files/1/0000/0001/files/westernvastr-satin-black.jpg?v=1726380000",
+          "alt": "Black satin co-ord set",
+          "width": 1200,
+          "height": 1600
+        }
+      ],
+      "options": [
+        {
+          "name": "Size",
+          "position": 1,
+          "values": ["M", "L"]
+        }
+      ]
+    },
+    {
+      "id": 7000000059,
+      "title": "Cotton Lounge Co-ord - Beige",
+      "handle": "cotton-lounge-co-ord-beige",
+      "body_html": "<p>Cotton Lounge Co-ord - Beige — a matching two-piece set designed for all-day comfort.</p>",
+      "published_at": "2026-09-15T10:30:00+05:30",
+      "created_at": "2026-09-15T10:30:00+05:30",
+      "updated_at": "2026-09-15T10:30:00+05:30",
+      "vendor": "Western Vastr",
+      "product_type": "Co-ord Set",
+      "tags": ["co-ord", "lounge"],
+      "variants": [
+        {
+          "id": 7000000060,
+          "title": "S",
+          "option1": "S",
+          "option2": null,
+          "option3": null,
+          "sku": "WV-COTTON-LOU-S",
+          "requires_shipping": true,
+          "taxable": true,
+          "featured_image": null,
+          "available": true,
+          "price": "1499.00",
+          "grams": 900,
+          "compare_at_price": "2499.00",
+          "position": 1,
+          "product_id": 7000000059,
+          "created_at": "2026-09-15T10:30:00+05:30",
+          "updated_at": "2026-09-15T10:30:00+05:30"
+        },
+        {
+          "id": 7000000061,
+          "title": "M",
+          "option1": "M",
+          "option2": null,
+          "option3": null,
+          "sku": "WV-COTTON-LOU-M",
+          "requires_shipping": true,
+          "taxable": true,
+          "featured_image": null,
+          "available": true,
+          "price": "1499.00",
+          "grams": 900,
+          "compare_at_price": "2499.00",
+          "position": 2,
+          "product_id": 7000000059,
+          "created_at": "2026-09-15T10:30:00+05:30",
+          "updated_at": "2026-09-15T10:30:00+05:30"
+        }
+      ],
+      "images": [
+        {
+          "id": 7000000062,
+          "created_at": "2026-09-15T10:30:00+05:30",
+          "position": 1,
+          "updated_at": "2026-09-15T10:30:00+05:30",
+          "product_id": 7000000059,
+          "variant_ids": [],
+          "src": "https://cdn.shopify.com/s/files/1/0000/0001/files/westernvastr-lounge-beige.jpg?v=1726380000",
+          "alt": "Beige cotton lounge co-ord set",
+          "width": 1200,
+          "height": 1600
+        }
+      ],
+      "options": [
+        {
+          "name": "Size",
+          "position": 1,
+          "values": ["S", "M"]
+        }
+      ]
+    }
+  ]
+}

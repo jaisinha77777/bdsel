@@ -1,0 +1,22 @@
+# we use Shopify as our ecommerce platform
+
+User-agent: *
+Disallow: /admin
+Disallow: /cart
+Disallow: /orders
+Disallow: /checkouts/
+Disallow: /checkout
+Disallow: /account
+Disallow: /collections/*sort_by*
+Disallow: /*/collections/*sort_by*
+Disallow: /collections/*+*
+Disallow: /search
+Disallow: /policies/
+Disallow: /*preview_theme_id*
+Disallow: /recommendations/products
+
+User-agent: AhrefsBot
+Crawl-delay: 10
+Disallow: /
+
+Sitemap: https://manpasandfashion.in/sitemap.xml

@@ -1,0 +1,24 @@
+{
+  "collections": [
+    {
+      "id": 7000000063,
+      "title": "Co-ord Sets",
+      "handle": "co-ord-sets",
+      "description": "All co-ord sets.",
+      "published_at": "2026-09-15T10:30:00+05:30",
+      "updated_at": "2026-09-15T10:30:00+05:30",
+      "image": null,
+      "products_count": 4
+    },
+    {
+      "id": 7000000064,
+      "title": "Linen Edit",
+      "handle": "linen-edit",
+      "description": "Breathable linen sets.",
+      "published_at": "2026-09-15T10:30:00+05:30",
+      "updated_at": "2026-09-15T10:30:00+05:30",
+      "image": null,
+      "products_count": 1
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "name": "@valam/theme-config",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Generates Shopify settings_data.json fragments per brand from config/brands.ts.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "cli": "tsx src/cli.ts"
+  },
+  "dependencies": {
+    "@valam/config": "workspace:*",
+    "@valam/core": "workspace:*"
+  }
+}
