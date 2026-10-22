@@ -1,0 +1,15 @@
+{
+  "name": "@valam/core",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Shared plumbing: polite HTTP client, robots.txt, rate limiting, Shopify feed client, HTML helpers.",
+  "exports": {
+    ".": "./src/index.ts",
+    "./testing": "./src/testing.ts"
+  },
+  "dependencies": {
+    "@valam/config": "workspace:*",
+    "node-html-parser": "^6.1.13"
+  }
+}

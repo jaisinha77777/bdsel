@@ -1,0 +1,277 @@
+{
+  "products": [
+    {
+      "id": 7000000026,
+      "title": "Banarasi Silk Saree - Maroon",
+      "handle": "banarasi-silk-saree-maroon",
+      "body_html": "<p>Pure Banarasi silk saree with zari buttis and an unstitched blouse piece.</p>",
+      "published_at": "2026-09-15T10:30:00+05:30",
+      "created_at": "2026-09-15T10:30:00+05:30",
+      "updated_at": "2026-09-15T10:30:00+05:30",
+      "vendor": "Manpasand Fashion",
+      "product_type": "Saree",
+      "tags": ["saree", "silk", "wedding"],
+      "variants": [
+        {
+          "id": 7000000027,
+          "title": "Free Size",
+          "option1": "Free Size",
+          "option2": null,
+          "option3": null,
+          "sku": "MPF-SAR-BAN-MRN",
+          "requires_shipping": true,
+          "taxable": true,
+          "featured_image": null,
+          "available": true,
+          "price": "7499.00",
+          "grams": 900,
+          "compare_at_price": "9999.00",
+          "position": 1,
+          "product_id": 7000000026,
+          "created_at": "2026-09-15T10:30:00+05:30",
+          "updated_at": "2026-09-15T10:30:00+05:30"
+        }
+      ],
+      "images": [
+        {
+          "id": 7000000028,
+          "created_at": "2026-09-15T10:30:00+05:30",
+          "position": 1,
+          "updated_at": "2026-09-15T10:30:00+05:30",
+          "product_id": 7000000026,
+          "variant_ids": [],
+          "src": "https://cdn.shopify.com/s/files/1/0000/0001/files/manpasand-banarasi-maroon.jpg?v=1726380000",
+          "alt": "Maroon Banarasi silk saree draped",
+          "width": 1200,
+          "height": 1600
+        }
+      ],
+      "options": [
+        {
+          "name": "Title",
+          "position": 1,
+          "values": ["Free Size"]
+        }
+      ]
+    },
+    {
+      "id": 7000000029,
+      "title": "Georgette Saree - Peach",
+      "handle": "georgette-saree-peach",
+      "body_html": "<p>Flowy georgette saree with sequin border.</p>",
+      "published_at": "2026-09-15T10:30:00+05:30",
+      "created_at": "2026-09-15T10:30:00+05:30",
+      "updated_at": "2026-09-15T10:30:00+05:30",
+      "vendor": "Manpasand Fashion",
+      "product_type": "Saree",
+      "tags": ["saree", "georgette", "party-wear"],
+      "variants": [
+        {
+          "id": 7000000030,
+          "title": "Free Size",
+          "option1": "Free Size",
+          "option2": null,
+          "option3": null,
+          "sku": "MPF-SAR-GEO-PCH",
+          "requires_shipping": true,
+          "taxable": true,
+          "featured_image": null,
+          "available": false,
+          "price": "2899.00",
+          "grams": 900,
+          "compare_at_price": null,
+          "position": 1,
+          "product_id": 7000000029,
+          "created_at": "2026-09-15T10:30:00+05:30",
+          "updated_at": "2026-09-15T10:30:00+05:30"
+        }
+      ],
+      "images": [
+        {
+          "id": 7000000031,
+          "created_at": "2026-09-15T10:30:00+05:30",
+          "position": 1,
+          "updated_at": "2026-09-15T10:30:00+05:30",
+          "product_id": 7000000029,
+          "variant_ids": [],
+          "src": "https://cdn.shopify.com/s/files/1/0000/0001/files/manpasand-georgette-peach.jpg?v=1726380000",
+          "alt": "Peach georgette saree with sequin border",
+          "width": 1200,
+          "height": 1600
+        }
+      ],
+      "options": [
+        {
+          "name": "Title",
+          "position": 1,
+          "values": ["Free Size"]
+        }
+      ]
+    },
+    {
+      "id": 7000000032,
+      "title": "Floor Length Anarkali Gown - Emerald",
+      "handle": "anarkali-gown-emerald",
+      "body_html": "<p>Floor-length Anarkali gown in emerald with embroidered yoke and dupatta.</p>",
+      "published_at": "2026-09-15T10:30:00+05:30",
+      "created_at": "2026-09-15T10:30:00+05:30",
+      "updated_at": "2026-09-15T10:30:00+05:30",
+      "vendor": "Manpasand Fashion",
+      "product_type": "Anarkali",
+      "tags": ["anarkali", "gown", "festive"],
+      "variants": [
+        {
+          "id": 7000000033,
+          "title": "M",
+          "option1": "M",
+          "option2": null,
+          "option3": null,
+          "sku": "MPF-ANK-EMR-M",
+          "requires_shipping": true,
+          "taxable": true,
+          "featured_image": null,
+          "available": true,
+          "price": "4599.00",
+          "grams": 900,
+          "compare_at_price": null,
+          "position": 1,
+          "product_id": 7000000032,
+          "created_at": "2026-09-15T10:30:00+05:30",
+          "updated_at": "2026-09-15T10:30:00+05:30"
+        },
+        {
+          "id": 7000000034,
+          "title": "L",
+          "option1": "L",
+          "option2": null,
+          "option3": null,
+          "sku": "MPF-ANK-EMR-L",
+          "requires_shipping": true,
+          "taxable": true,
+          "featured_image": null,
+          "available": true,
+          "price": "4599.00",
+          "grams": 900,
+          "compare_at_price": null,
+          "position": 2,
+          "product_id": 7000000032,
+          "created_at": "2026-09-15T10:30:00+05:30",
+          "updated_at": "2026-09-15T10:30:00+05:30"
+        },
+        {
+          "id": 7000000035,
+          "title": "XL",
+          "option1": "XL",
+          "option2": null,
+          "option3": null,
+          "sku": "MPF-ANK-EMR-XL",
+          "requires_shipping": true,
+          "taxable": true,
+          "featured_image": null,
+          "available": true,
+          "price": "4599.00",
+          "grams": 900,
+          "compare_at_price": null,
+          "position": 3,
+          "product_id": 7000000032,
+          "created_at": "2026-09-15T10:30:00+05:30",
+          "updated_at": "2026-09-15T10:30:00+05:30"
+        }
+      ],
+      "images": [
+        {
+          "id": 7000000036,
+          "created_at": "2026-09-15T10:30:00+05:30",
+          "position": 1,
+          "updated_at": "2026-09-15T10:30:00+05:30",
+          "product_id": 7000000032,
+          "variant_ids": [],
+          "src": "https://cdn.shopify.com/s/files/1/0000/0001/files/manpasand-anarkali-emerald.jpg?v=1726380000",
+          "alt": "Emerald floor length Anarkali gown",
+          "width": 1200,
+          "height": 1600
+        }
+      ],
+      "options": [
+        {
+          "name": "Size",
+          "position": 1,
+          "values": ["M", "L", "XL"]
+        }
+      ]
+    },
+    {
+      "id": 7000000037,
+      "title": "Printed Anarkali Gown - Ivory",
+      "handle": "printed-anarkali-gown-ivory",
+      "body_html": "<p>Ivory printed Anarkali in breathable cotton.</p>",
+      "published_at": "2026-09-15T10:30:00+05:30",
+      "created_at": "2026-09-15T10:30:00+05:30",
+      "updated_at": "2026-09-15T10:30:00+05:30",
+      "vendor": "Manpasand Fashion",
+      "product_type": "Anarkali",
+      "tags": ["anarkali", "gown", "printed"],
+      "variants": [
+        {
+          "id": 7000000038,
+          "title": "S",
+          "option1": "S",
+          "option2": null,
+          "option3": null,
+          "sku": "MPF-ANK-IVR-S",
+          "requires_shipping": true,
+          "taxable": true,
+          "featured_image": null,
+          "available": true,
+          "price": "2499.00",
+          "grams": 900,
+          "compare_at_price": null,
+          "position": 1,
+          "product_id": 7000000037,
+          "created_at": "2026-09-15T10:30:00+05:30",
+          "updated_at": "2026-09-15T10:30:00+05:30"
+        },
+        {
+          "id": 7000000039,
+          "title": "M",
+          "option1": "M",
+          "option2": null,
+          "option3": null,
+          "sku": "MPF-ANK-IVR-M",
+          "requires_shipping": true,
+          "taxable": true,
+          "featured_image": null,
+          "available": false,
+          "price": "2499.00",
+          "grams": 900,
+          "compare_at_price": null,
+          "position": 2,
+          "product_id": 7000000037,
+          "created_at": "2026-09-15T10:30:00+05:30",
+          "updated_at": "2026-09-15T10:30:00+05:30"
+        }
+      ],
+      "images": [
+        {
+          "id": 7000000040,
+          "created_at": "2026-09-15T10:30:00+05:30",
+          "position": 1,
+          "updated_at": "2026-09-15T10:30:00+05:30",
+          "product_id": 7000000037,
+          "variant_ids": [],
+          "src": "https://cdn.shopify.com/s/files/1/0000/0001/files/manpasand-anarkali-ivory.jpg?v=1726380000",
+          "alt": "",
+          "width": 1200,
+          "height": 1600
+        }
+      ],
+      "options": [
+        {
+          "name": "Size",
+          "position": 1,
+          "values": ["S", "M"]
+        }
+      ]
+    }
+  ]
+}

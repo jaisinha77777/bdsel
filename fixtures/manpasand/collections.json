@@ -1,0 +1,34 @@
+{
+  "collections": [
+    {
+      "id": 7000000041,
+      "title": "Sarees",
+      "handle": "sarees",
+      "description": "Silk, georgette and festive sarees.",
+      "published_at": "2026-09-15T10:30:00+05:30",
+      "updated_at": "2026-09-15T10:30:00+05:30",
+      "image": null,
+      "products_count": 2
+    },
+    {
+      "id": 7000000042,
+      "title": "Anarkali Gowns",
+      "handle": "anarkali-gowns",
+      "description": "Anarkali gowns for every occasion.",
+      "published_at": "2026-09-15T10:30:00+05:30",
+      "updated_at": "2026-09-15T10:30:00+05:30",
+      "image": null,
+      "products_count": 2
+    },
+    {
+      "id": 7000000043,
+      "title": "Clearance",
+      "handle": "clearance",
+      "description": "Last few pieces.",
+      "published_at": "2026-09-15T10:30:00+05:30",
+      "updated_at": "2026-09-15T10:30:00+05:30",
+      "image": null,
+      "products_count": 0
+    }
+  ]
+}

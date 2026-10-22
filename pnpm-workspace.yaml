@@ -1,0 +1,8 @@
+# pnpm workspace definition: every tool lives under packages/, brand data under config/.
+packages:
+  - 'config'
+  - 'packages/*'
+
+# esbuild (used by tsx and vitest) needs its install script to fetch the platform binary.
+onlyBuiltDependencies:
+  - esbuild

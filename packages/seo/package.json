@@ -1,0 +1,17 @@
+{
+  "name": "@valam/seo",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "SEO generators (meta, Open Graph, JSON-LD), Liquid snippets, robots/sitemap checks and validators.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "cli": "tsx src/cli.ts"
+  },
+  "dependencies": {
+    "@valam/config": "workspace:*",
+    "@valam/core": "workspace:*"
+  }
+}

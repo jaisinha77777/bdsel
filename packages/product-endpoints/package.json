@@ -1,0 +1,21 @@
+{
+  "name": "@valam/product-endpoints",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Cached, rate-limited Express proxy over each Shopify store's public product feed.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "start": "tsx src/server.ts"
+  },
+  "dependencies": {
+    "@valam/config": "workspace:*",
+    "@valam/core": "workspace:*",
+    "express": "^4.21.2"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21"
+  }
+}

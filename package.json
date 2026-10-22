@@ -1,0 +1,36 @@
+{
+  "name": "valam-store-toolkit",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Developer and SEO tooling for Valam's Shopify / WooCommerce client stores.",
+  "type": "module",
+  "packageManager": "pnpm@10.28.0",
+  "engines": {
+    "node": ">=20.12"
+  },
+  "scripts": {
+    "theme:config": "tsx packages/theme-config/src/cli.ts",
+    "seo:generate": "tsx packages/seo/src/cli.ts generate",
+    "seo:audit": "tsx packages/seo/src/cli.ts audit",
+    "qa": "tsx packages/qa-checker/src/cli.ts",
+    "monitor": "tsx packages/uptime-monitor/src/cli.ts",
+    "api": "tsx packages/product-endpoints/src/server.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc -p tsconfig.json",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "check": "pnpm typecheck && pnpm lint && pnpm format:check && pnpm test"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.5",
+    "@types/node": "^20.19.43",
+    "eslint": "^9.39.5",
+    "prettier": "^3.9.10",
+    "tsx": "^4.23.15",
+    "typescript": "~5.7.3",
+    "typescript-eslint": "^8.72.0",
+    "vitest": "^3.2.7"
+  }
+}

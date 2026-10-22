@@ -1,0 +1,98 @@
+{%- comment -%}
+  product-schema.liquid — Valam Store Toolkit
+  Product JSON-LD (one INR Offer per variant, with availability, SKU, brand and
+  images) plus a BreadcrumbList (Home › Collection › Product). Uses only the
+  storefront's own Liquid objects: shop, product, collection, canonical_url.
+
+  Usage (in sections/main-product.liquid or templates/product.liquid):
+    {%- render 'product-schema', product: product -%}
+{%- endcomment -%}
+
+{%- if product -%}
+  {%- liquid
+    assign schema_currency = shop.currency | default: 'INR'
+    assign schema_brand = product.vendor | default: shop.name
+    assign schema_variant = product.selected_or_first_available_variant
+    assign schema_url = shop.url | append: product.url
+  -%}
+<script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    "@id": {{ schema_url | append: '#product' | json }},
+    "name": {{ product.title | json }},
+    "url": {{ schema_url | json }},
+    {%- if product.description != blank %}
+    "description": {{ product.description | strip_html | strip_newlines | strip | truncate: 5000 | json }},
+    {%- endif %}
+    {%- if product.featured_media %}
+    "image": [
+      {%- comment -%} Every media type (image, video, 3D model) exposes preview_image. {%- endcomment -%}
+      {%- for media in product.media limit: 10 -%}
+        {{ media.preview_image | image_url: width: 1200 | prepend: 'https:' | json }}{%- unless forloop.last -%},{%- endunless -%}
+      {%- endfor -%}
+    ],
+    {%- endif %}
+    "sku": {{ schema_variant.sku | default: schema_variant.id | json }},
+    {%- if product.type != blank %}
+    "category": {{ product.type | json }},
+    {%- endif %}
+    "brand": { "@type": "Brand", "name": {{ schema_brand | json }} },
+    "offers": [
+      {%- for variant in product.variants -%}
+      {
+        "@type": "Offer",
+        {%- if variant.sku != blank %}
+        "sku": {{ variant.sku | json }},
+        {%- endif %}
+        {%- if variant.barcode != blank %}
+        "gtin": {{ variant.barcode | json }},
+        {%- endif %}
+        "name": {{ variant.title | json }},
+        "url": {{ shop.url | append: variant.url | json }},
+        "price": {{ variant.price | divided_by: 100.0 | json }},
+        "priceCurrency": {{ schema_currency | json }},
+        "availability": "https://schema.org/{% if variant.available %}InStock{% else %}OutOfStock{% endif %}",
+        "itemCondition": "https://schema.org/NewCondition",
+        "seller": { "@type": "Organization", "name": {{ shop.name | json }} }
+      }{%- unless forloop.last -%},{%- endunless -%}
+      {%- endfor -%}
+    ]
+  }
+</script>
+<script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      {
+        "@type": "ListItem",
+        "position": 1,
+        "name": "Home",
+        "item": {{ shop.url | append: '/' | json }}
+      },
+      {%- if collection and collection.handle != blank %}
+      {
+        "@type": "ListItem",
+        "position": 2,
+        "name": {{ collection.title | json }},
+        "item": {{ shop.url | append: collection.url | json }}
+      },
+      {
+        "@type": "ListItem",
+        "position": 3,
+        "name": {{ product.title | json }},
+        "item": {{ canonical_url | json }}
+      }
+      {%- else %}
+      {
+        "@type": "ListItem",
+        "position": 2,
+        "name": {{ product.title | json }},
+        "item": {{ canonical_url | json }}
+      }
+      {%- endif %}
+    ]
+  }
+</script>
+{%- endif -%}
